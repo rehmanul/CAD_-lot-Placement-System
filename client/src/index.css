@@ -45,7 +45,7 @@
   --muted-foreground: hsl(240, 5%, 64.9%);
   --popover: hsl(240, 10%, 3.9%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
+  --card: hsl(217, 32%, 17%);
   --card-foreground: hsl(0, 0%, 98%);
   --border: hsl(240, 3.7%, 15.9%);
   --input: hsl(240, 3.7%, 15.9%);
@@ -71,6 +71,19 @@
 
   body {
     @apply font-inter antialiased bg-gray-900 text-white min-h-screen overflow-x-hidden;
+  }
+
+  /* Ensure proper text contrast on dark cards */
+  .bg-\[#111827\] {
+    color: white !important;
+  }
+
+  .bg-\[#111827\] * {
+    color: white !important;
+  }
+
+  .bg-\[#111827\] .text-muted-foreground {
+    color: #9CA3AF !important;
   }
 }
 
