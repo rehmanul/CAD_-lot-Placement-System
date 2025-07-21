@@ -1,4 +1,5 @@
 import { CADFile, OptimizationResult } from "@shared/schema";
+import { nanoid } from "nanoid";
 
 interface AnalysisConfig {
   ilotConfig: {
@@ -57,12 +58,12 @@ function generateOptimizedIlots(cadFile: CADFile, config: any): any[] {
   const mediumCount = Math.floor(totalIlots * config.mediumIlots / 100);
   const largeCount = totalIlots - smallCount - mediumCount;
   
-  let ilotId = 1;
+
   
   // Generate small îlots
   for (let i = 0; i < smallCount; i++) {
     ilots.push({
-      id: `ilot_${ilotId++}`,
+      id: nanoid(),
       position: { x: 100 + i * 50, y: 80 + Math.random() * 100 },
       width: 2.5 + Math.random() * 1,
       height: 2 + Math.random() * 1,
@@ -77,7 +78,7 @@ function generateOptimizedIlots(cadFile: CADFile, config: any): any[] {
   // Generate medium îlots
   for (let i = 0; i < mediumCount; i++) {
     ilots.push({
-      id: `ilot_${ilotId++}`,
+      id: nanoid(),
       position: { x: 300 + i * 70, y: 120 + Math.random() * 150 },
       width: 3.5 + Math.random() * 1.5,
       height: 3 + Math.random() * 1.5,
@@ -92,7 +93,7 @@ function generateOptimizedIlots(cadFile: CADFile, config: any): any[] {
   // Generate large îlots
   for (let i = 0; i < largeCount; i++) {
     ilots.push({
-      id: `ilot_${ilotId++}`,
+      id: nanoid(),
       position: { x: 500 + i * 90, y: 200 + Math.random() * 200 },
       width: 4.5 + Math.random() * 2,
       height: 4 + Math.random() * 2,
@@ -119,7 +120,7 @@ function generateCorridorNetwork(ilots: any[], cadFile: CADFile): any[] {
     const path = generatePath(from.position, to.position);
     
     corridors.push({
-      id: `corridor_${i + 1}`,
+      id: nanoid(),
       path,
       width: 1.2,
       connectedIlots: [from.id, to.id],
@@ -128,8 +129,9 @@ function generateCorridorNetwork(ilots: any[], cadFile: CADFile): any[] {
     });
     
     // Update îlot connections
-    from.corridorConnections.push(`corridor_${i + 1}`);
-    to.corridorConnections.push(`corridor_${i + 1}`);
+    const corridorId = corridors[corridors.length - 1].id;
+    from.corridorConnections.push(corridorId);
+    to.corridorConnections.push(corridorId);
   }
   
   return corridors;

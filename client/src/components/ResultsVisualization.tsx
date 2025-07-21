@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Layout, Ruler, Square, Maximize } from "lucide-react";
-import { CADFile } from "@/types/cad";
+import { CADFile } from "@shared/schema";
 
 interface ResultsVisualizationProps {
   uploadedFile: CADFile | null;
+  analysis?: any;
 }
 
-export default function ResultsVisualization({ uploadedFile }: ResultsVisualizationProps) {
+export default function ResultsVisualization({ uploadedFile, analysis }: ResultsVisualizationProps) {
   const [layerVisibility, setLayerVisibility] = useState({
     walls: true,
     ilots: true,

@@ -1,39 +1,73 @@
-import { useCallback } from "react";
-import { Upload, FilePlus, FileText, CheckCircle } from "lucide-react";
-import { CADFile } from "@/types/cad";
-import { processCADFile } from "@/utils/cadProcessor";
+import { useCallback, useState } from "react";
+import { Upload, FilePlus, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { CADFile } from "@shared/schema";
+import { cadAPI } from "@/lib/api";
 
 interface FileUploadAreaProps {
   uploadedFile: CADFile | null;
   onFileUpload: (file: CADFile | null) => void;
 }
 
+interface UploadState {
+  isUploading: boolean;
+  progress: number;
+  error: string | null;
+}
+
 export default function FileUploadArea({ uploadedFile, onFileUpload }: FileUploadAreaProps) {
+  const [uploadState, setUploadState] = useState<UploadState>({
+    isUploading: false,
+    progress: 0,
+    error: null
+  });
+
+  const processFile = useCallback(async (file: File) => {
+    setUploadState({ isUploading: true, progress: 0, error: null });
+
+    try {
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadState(prev => ({
+          ...prev,
+          progress: Math.min(prev.progress + 10, 90)
+        }));
+      }, 200);
+
+      const result = await cadAPI.uploadFile(file);
+      
+      clearInterval(progressInterval);
+      setUploadState({ isUploading: false, progress: 100, error: null });
+      
+      onFileUpload(result.data);
+      
+      // Reset progress after success
+      setTimeout(() => {
+        setUploadState(prev => ({ ...prev, progress: 0 }));
+      }, 2000);
+      
+    } catch (error: any) {
+      setUploadState({
+        isUploading: false,
+        progress: 0,
+        error: error.message || 'Upload failed'
+      });
+      console.error("File upload error:", error);
+    }
+  }, [onFileUpload]);
+
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    try {
-      const processedFile = await processCADFile(file);
-      onFileUpload(processedFile);
-    } catch (error) {
-      console.error("File processing error:", error);
-      // Handle error appropriately
-    }
-  }, [onFileUpload]);
+    await processFile(file);
+    event.target.value = ''; // Reset input
+  }, [processFile]);
 
   const handleDrop = useCallback(async (event: React.DragEvent) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (!file) return;
-
-    try {
-      const processedFile = await processCADFile(file);
-      onFileUpload(processedFile);
-    } catch (error) {
-      console.error("File processing error:", error);
-    }
-  }, [onFileUpload]);
+    await processFile(file);
+  }, [processFile]);
 
   return (
     <div className="metric-card rounded-xl p-6">
@@ -50,22 +84,62 @@ export default function FileUploadArea({ uploadedFile, onFileUpload }: FileUploa
       </div>
 
       <div
-        className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
+        className={`border-2 border-dashed ${uploadState.isUploading ? 'border-blue-500 bg-blue-50/5' : 'border-gray-600'} rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer`}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
-        onClick={() => document.getElementById('file-input')?.click()}
+        onClick={() => !uploadState.isUploading && document.getElementById('file-input')?.click()}
       >
-        <FilePlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-300 mb-2">Drop CAD files here or click to browse</p>
-        <p className="text-sm text-gray-500">Support for AutoCAD, SolidWorks, MicroStation formats</p>
+        {uploadState.isUploading ? (
+          <>
+            <div className="w-12 h-12 mx-auto mb-4 relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-medium text-blue-400">{uploadState.progress}%</span>
+              </div>
+            </div>
+            <p className="text-blue-400 mb-2">Processing CAD file...</p>
+            <p className="text-sm text-gray-500">Extracting geometry and analyzing structure</p>
+          </>
+        ) : uploadState.error ? (
+          <>
+            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <p className="text-red-400 mb-2">Upload Failed</p>
+            <p className="text-sm text-gray-500">{uploadState.error}</p>
+            <button 
+              onClick={() => setUploadState({ isUploading: false, progress: 0, error: null })}
+              className="mt-2 text-sm text-blue-400 hover:text-blue-300"
+            >
+              Try Again
+            </button>
+          </>
+        ) : (
+          <>
+            <FilePlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-300 mb-2">Drop CAD files here or click to browse</p>
+            <p className="text-sm text-gray-500">Support for AutoCAD, SolidWorks, MicroStation formats</p>
+          </>
+        )}
+        
         <input
           id="file-input"
           type="file"
           accept=".dxf,.dwg,.pdf,.png,.jpg,.jpeg"
           onChange={handleFileUpload}
           className="hidden"
+          disabled={uploadState.isUploading}
         />
       </div>
+
+      {uploadState.isUploading && (
+        <div className="mt-4">
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${uploadState.progress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {uploadedFile && (
         <div className="mt-4 space-y-2">

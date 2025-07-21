@@ -1,4 +1,5 @@
 import { CADFile } from "@shared/schema";
+import { nanoid } from "nanoid";
 
 interface FileInput {
   buffer: Buffer;
@@ -11,7 +12,7 @@ export async function processCADFile(file: FileInput): Promise<CADFile> {
   const extension = file.originalname.split('.').pop()?.toLowerCase();
   
   // Generate unique ID
-  const id = `cad_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const id = nanoid();
   
   switch (extension) {
     case 'dxf':

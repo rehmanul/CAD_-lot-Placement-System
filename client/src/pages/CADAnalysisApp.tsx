@@ -9,25 +9,16 @@ import ResultsVisualization from "@/components/ResultsVisualization";
 import ExportSection from "@/components/ExportSection";
 import { AutoCADIntegration } from "@/components/AutoCADIntegration";
 import { BIMVisualization } from "@/components/BIMVisualization";
-import { CADFile, ProcessingPhase, IlotConfiguration, ExportProgress } from "@/types/cad";
+import { CADFile, Analysis } from "@shared/schema";
 
 export default function CADAnalysisApp() {
   const [activeTab, setActiveTab] = useState<string>("Dashboard");
   const [uploadedFile, setUploadedFile] = useState<CADFile | null>(null);
-  const [processingPhases, setProcessingPhases] = useState<ProcessingPhase[]>([
-    { id: 1, name: "CAD Processing & Floor Plan Extraction", status: "complete", progress: 100 },
-    { id: 2, name: "Pixel-Perfect Visual Reproduction", status: "complete", progress: 100 },
-    { id: 3, name: "Intelligent Îlot Placement", status: "processing", progress: 67 },
-    { id: 4, name: "Corridor Network Generation", status: "pending", progress: 0 }
-  ]);
-  const [ilotConfig, setIlotConfig] = useState<IlotConfiguration>({
-    smallIlots: 30,
-    mediumIlots: 50,
-    largeIlots: 20,
-    corridorWidth: 1.2,
-    adaCompliance: true
-  });
-  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
+  const [currentAnalysis, setCurrentAnalysis] = useState<Analysis | null>(null);
+  
+  const handleAnalysisComplete = (analysis: Analysis) => {
+    setCurrentAnalysis(analysis);
+  };
 
   return (
     <div className="bg-gray-900 font-inter text-white min-h-screen overflow-x-hidden">
@@ -46,20 +37,16 @@ export default function CADAnalysisApp() {
                   uploadedFile={uploadedFile} 
                   onFileUpload={setUploadedFile}
                 />
-                <ConfigurationPanel 
-                  config={ilotConfig}
-                  onConfigChange={setIlotConfig}
-                />
               </div>
 
               {/* Center Panel: Processing Pipeline & Results */}
               <div className="xl:col-span-2 space-y-6">
-                <ProcessingPipeline phases={processingPhases} />
-                <ResultsVisualization uploadedFile={uploadedFile} />
-                <ExportSection 
-                  exportProgress={exportProgress}
-                  onExport={setExportProgress}
+                <ProcessingPipeline 
+                  uploadedFile={uploadedFile} 
+                  onAnalysisComplete={handleAnalysisComplete}
                 />
+                <ResultsVisualization uploadedFile={uploadedFile} analysis={currentAnalysis} />
+                <ExportSection analysis={currentAnalysis} />
               </div>
             </div>
           )}
@@ -73,17 +60,14 @@ export default function CADAnalysisApp() {
           )}
 
           {activeTab === "Analysis" && (
-            <div className="space-y-6">
-              <ProcessingPipeline phases={processingPhases} />
-              <ResultsVisualization uploadedFile={uploadedFile} />
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold text-white mb-4">Analysis Dashboard</h2>
+              <p className="text-gray-400">Advanced analysis tools and configuration options</p>
             </div>
           )}
 
           {activeTab === "Export" && (
-            <ExportSection 
-              exportProgress={exportProgress}
-              onExport={setExportProgress}
-            />
+            <ExportSection analysis={currentAnalysis} />
           )}
         </main>
       </div>
