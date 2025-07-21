@@ -98,7 +98,6 @@ export default function PixelPerfectFloorPlan({
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
-        const ilotType = ilot.type || 'unknown';
         ctx.fillText(
           `${ilotType.charAt(0).toUpperCase()}${index + 1}`,
           scaledX + scaledWidth / 2,
