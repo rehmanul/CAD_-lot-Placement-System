@@ -10,7 +10,7 @@ interface PixelPerfectFloorPlanProps {
   analysis: Analysis;
 }
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status?: string) => {
     if (!status || typeof status !== 'string') return 'text-gray-400';
     const firstChar = status.toLowerCase().charAt(0);
     switch (firstChar) {
@@ -37,38 +37,61 @@ export default function PixelPerfectFloorPlan({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Set canvas size
-    canvas.width = 800;
-    canvas.height = 600;
+    // Set canvas size for better pixel-perfect rendering
+    canvas.width = 1000;
+    canvas.height = 800;
 
     // Draw background
-    ctx.fillStyle = '#1f2937';
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid
-    ctx.strokeStyle = '#374151';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < canvas.width; i += 20) {
+    // Draw precise grid (1m = 10px for pixel-perfect visualization)
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 0.5;
+    const gridSize = 10; // 1 meter = 10 pixels
+    
+    for (let i = 0; i <= canvas.width; i += gridSize) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
       ctx.lineTo(i, canvas.height);
       ctx.stroke();
     }
-    for (let i = 0; i < canvas.height; i += 20) {
+    for (let i = 0; i <= canvas.height; i += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, i);
       ctx.lineTo(canvas.width, i);
       ctx.stroke();
     }
 
-    // Draw floor plan bounds
-    ctx.strokeStyle = '#6B7280';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, 50, 700, 500);
+    // Draw major grid lines (5m intervals)
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= canvas.width; i += gridSize * 5) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let i = 0; i <= canvas.height; i += gridSize * 5) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(canvas.width, i);
+      ctx.stroke();
+    }
 
-    const scaleFactor = 6;
-    const offsetX = 60;
-    const offsetY = 60;
+    // Draw floor plan bounds with exact measurements
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 2;
+    const floorPlanWidth = 900;
+    const floorPlanHeight = 700;
+    const floorPlanX = (canvas.width - floorPlanWidth) / 2;
+    const floorPlanY = (canvas.height - floorPlanHeight) / 2;
+    ctx.strokeRect(floorPlanX, floorPlanY, floorPlanWidth, floorPlanHeight);
+
+    // Pixel-perfect scaling: 1 meter = 10 pixels
+    const scaleFactor = 10;
+    const offsetX = floorPlanX;
+    const offsetY = floorPlanY;
 
     // Draw îlots with correct property access
     analysis.result.ilots.forEach((ilot, index) => {
@@ -103,26 +126,35 @@ export default function PixelPerfectFloorPlan({
         ctx.strokeRect(scaledX + 1, scaledY + 1, scaledWidth - 2, scaledHeight - 2);
       }
 
-      // Draw label
-      if (scaledWidth > 20 && scaledHeight > 20) {
+      // Draw îlot measurements and label
+      if (scaledWidth > 15 && scaledHeight > 15) {
+        // Draw measurement text
         ctx.fillStyle = '#ffffff';
-        ctx.font = '10px Arial';
+        ctx.font = '8px monospace';
         ctx.textAlign = 'center';
         const displaySize = ilotSize.charAt(0).toUpperCase();
+        const widthM = (ilot.width || 2.4).toFixed(1);
+        const heightM = (ilot.height || 1.6).toFixed(1);
+        
         ctx.fillText(
           `${displaySize}${index + 1}`,
           scaledX + scaledWidth / 2,
-          scaledY + scaledHeight / 2 + 3
+          scaledY + scaledHeight / 2 - 3
+        );
+        ctx.fillText(
+          `${widthM}×${heightM}m`,
+          scaledX + scaledWidth / 2,
+          scaledY + scaledHeight / 2 + 8
         );
       }
     });
 
-    // Draw corridors with pixel-perfect visualization
+    // Draw corridors first (so they appear behind îlots)
     if (analysis.result.corridors && Array.isArray(analysis.result.corridors)) {
       analysis.result.corridors.forEach((corridor, corridorIndex) => {
-        if (corridor.path && Array.isArray(corridor.path)) {
-          // Draw corridor background (width)
-          const corridorWidth = (corridor.width || 1.2) * scaleFactor;
+        if (corridor.path && Array.isArray(corridor.path) && corridor.path.length >= 2) {
+          // Use exact corridor width (default 1.2m = 12 pixels)
+          const corridorWidthPixels = (corridor.width || 1.2) * scaleFactor;
           
           for (let i = 0; i < corridor.path.length - 1; i++) {
             const start = corridor.path[i];
@@ -136,17 +168,17 @@ export default function PixelPerfectFloorPlan({
               const endX = offsetX + (end.x * scaleFactor);
               const endY = offsetY + (end.y * scaleFactor);
               
-              // Calculate perpendicular offset for corridor width
+              // Calculate perpendicular offset for exact corridor width
               const dx = endX - startX;
               const dy = endY - startY;
-              const length = Math.sqrt(dx * dx + dy * dy);
+              const segmentLength = Math.sqrt(dx * dx + dy * dy);
               
-              if (length > 0) {
-                const perpX = -dy / length * (corridorWidth / 2);
-                const perpY = dx / length * (corridorWidth / 2);
+              if (segmentLength > 0) {
+                const perpX = -dy / segmentLength * (corridorWidthPixels / 2);
+                const perpY = dx / segmentLength * (corridorWidthPixels / 2);
                 
-                // Draw corridor as filled rectangle
-                ctx.fillStyle = 'rgba(139, 92, 246, 0.3)'; // Purple with transparency
+                // Draw corridor background with exact width
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.25)'; // Indigo with transparency
                 ctx.beginPath();
                 ctx.moveTo(startX + perpX, startY + perpY);
                 ctx.lineTo(startX - perpX, startY - perpY);
@@ -155,41 +187,59 @@ export default function PixelPerfectFloorPlan({
                 ctx.closePath();
                 ctx.fill();
                 
+                // Draw corridor border for precision
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
                 // Draw corridor centerline
-                ctx.strokeStyle = '#8B5CF6';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#4f46e5';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 3]);
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
+                ctx.setLineDash([]);
               }
             }
           }
           
-          // Draw corridor endpoints
+          // Draw corridor connection points
           corridor.path.forEach((point, pointIndex) => {
             if (point && typeof point.x === 'number' && typeof point.y === 'number') {
               const pointX = offsetX + (point.x * scaleFactor);
               const pointY = offsetY + (point.y * scaleFactor);
               
-              ctx.fillStyle = '#8B5CF6';
+              // Draw connection node
+              ctx.fillStyle = '#4f46e5';
               ctx.beginPath();
-              ctx.arc(pointX, pointY, 3, 0, 2 * Math.PI);
+              ctx.arc(pointX, pointY, 4, 0, 2 * Math.PI);
               ctx.fill();
+              
+              // Draw node border
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 1;
+              ctx.stroke();
             }
           });
           
-          // Draw corridor label
+          // Draw corridor width indicator and label
           if (corridor.path.length > 0) {
             const midPoint = corridor.path[Math.floor(corridor.path.length / 2)];
             if (midPoint && typeof midPoint.x === 'number' && typeof midPoint.y === 'number') {
               const labelX = offsetX + (midPoint.x * scaleFactor);
               const labelY = offsetY + (midPoint.y * scaleFactor);
               
+              // Draw label background
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+              ctx.fillRect(labelX - 25, labelY - 8, 50, 16);
+              
+              // Draw corridor info
               ctx.fillStyle = '#ffffff';
-              ctx.font = '10px Arial';
+              ctx.font = '9px monospace';
               ctx.textAlign = 'center';
-              ctx.fillText(`C${corridorIndex + 1}`, labelX, labelY + 3);
+              ctx.fillText(`${(corridor.width || 1.2).toFixed(1)}m`, labelX, labelY + 3);
             }
           }
         }
@@ -310,13 +360,37 @@ export default function PixelPerfectFloorPlan({
             </div>
           </div>
 
-        {/* Canvas */}
-        <div className="flex justify-center">
+        {/* Canvas with scale reference */}
+        <div className="flex flex-col items-center">
           <canvas 
             ref={canvasRef}
-            className="border border-gray-600 rounded-lg max-w-full"
-            style={{ background: '#1f2937' }}
+            className="border border-gray-600 rounded-lg max-w-full shadow-2xl"
+            style={{ background: '#0f172a' }}
           />
+          
+          {/* Scale Reference */}
+          <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-1 bg-gray-400"></div>
+              <span>1m = 10px</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-indigo-500 opacity-25 border border-indigo-400"></div>
+              <span>Corridors (1.2m width)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500"></div>
+              <span>Small Îlots</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500"></div>
+              <span>Medium Îlots</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500"></div>
+              <span>Large Îlots</span>
+            </div>
+          </div>
         </div>
         </div>
       )}

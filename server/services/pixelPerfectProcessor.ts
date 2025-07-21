@@ -468,7 +468,9 @@ export class PixelPerfectProcessor {
     const { ilots, rooms } = this.generateOptimalIlotPlacement(floorPlanElements, ilotConfig);
     
     // Step 3: Generate corridor network with exact rules
+    console.log(`Generating corridor network for ${ilots.length} îlots...`);
     const corridors = this.generateCorridorNetwork(ilots);
+    console.log(`Generated ${corridors.length} corridors with pixel-perfect placement`);
     
     // Step 4: Calculate metrics
     const totalArea = rooms.reduce((sum, room) => sum + room.area, 0);
