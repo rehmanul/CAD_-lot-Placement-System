@@ -7,6 +7,8 @@ import ConfigurationPanel from "@/components/ConfigurationPanel";
 import ProcessingPipeline from "@/components/ProcessingPipeline";
 import ResultsVisualization from "@/components/ResultsVisualization";
 import ExportSection from "@/components/ExportSection";
+import { AutoCADIntegration } from "@/components/AutoCADIntegration";
+import { BIMVisualization } from "@/components/BIMVisualization";
 import { CADFile, ProcessingPhase, IlotConfiguration, ExportProgress } from "@/types/cad";
 
 export default function CADAnalysisApp() {
@@ -34,31 +36,55 @@ export default function CADAnalysisApp() {
       
       <div className="flex min-h-screen">
         <main className="flex-1 p-6">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-full">
-            
-            {/* Left Panel: System Metrics & File Upload */}
-            <div className="xl:col-span-1 space-y-6">
-              <SystemMetrics />
-              <FileUploadArea 
-                uploadedFile={uploadedFile} 
-                onFileUpload={setUploadedFile}
-              />
-              <ConfigurationPanel 
-                config={ilotConfig}
-                onConfigChange={setIlotConfig}
-              />
-            </div>
+          {activeTab === "Dashboard" && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-full">
+              
+              {/* Left Panel: System Metrics & File Upload */}
+              <div className="xl:col-span-1 space-y-6">
+                <SystemMetrics />
+                <FileUploadArea 
+                  uploadedFile={uploadedFile} 
+                  onFileUpload={setUploadedFile}
+                />
+                <ConfigurationPanel 
+                  config={ilotConfig}
+                  onConfigChange={setIlotConfig}
+                />
+              </div>
 
-            {/* Center Panel: Processing Pipeline & Results */}
-            <div className="xl:col-span-2 space-y-6">
+              {/* Center Panel: Processing Pipeline & Results */}
+              <div className="xl:col-span-2 space-y-6">
+                <ProcessingPipeline phases={processingPhases} />
+                <ResultsVisualization uploadedFile={uploadedFile} />
+                <ExportSection 
+                  exportProgress={exportProgress}
+                  onExport={setExportProgress}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === "AutoCAD Integration" && (
+            <AutoCADIntegration />
+          )}
+
+          {activeTab === "3D BIM" && (
+            <BIMVisualization />
+          )}
+
+          {activeTab === "Analysis" && (
+            <div className="space-y-6">
               <ProcessingPipeline phases={processingPhases} />
               <ResultsVisualization uploadedFile={uploadedFile} />
-              <ExportSection 
-                exportProgress={exportProgress}
-                onExport={setExportProgress}
-              />
             </div>
-          </div>
+          )}
+
+          {activeTab === "Export" && (
+            <ExportSection 
+              exportProgress={exportProgress}
+              onExport={setExportProgress}
+            />
+          )}
         </main>
       </div>
     </div>

@@ -1,12 +1,23 @@
-# Enterprise CAD Analysis Pro - Replit Configuration
+# CAD Îlot Placement System - Replit Configuration
 
 ## Overview
 
-This is a comprehensive enterprise-grade CAD Analysis application built for professional îlot placement and optimization. The system processes CAD files (DXF, DWG, PDF) and performs intelligent spatial analysis using advanced algorithms including genetic optimization and A* pathfinding for corridor generation.
+This is a comprehensive CAD Analysis application built for îlot placement and optimization with AutoCAD API integration and advanced 3D BIM visualization. The system processes CAD files (DXF, DWG, PDF) and performs intelligent spatial analysis using advanced algorithms including genetic optimization and A* pathfinding for corridor generation.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Branding: Simplified "CAD Îlot Placement System" instead of "Enterprise" terminology.
+Remove professional licensing UI elements.
+
+## Recent Changes (January 2025)
+
+✓ Added AutoCAD API integration for direct file import/export
+✓ Implemented advanced 3D BIM visualization with layer management
+✓ Updated branding to remove "Enterprise" terminology
+✓ Removed professional license UI elements
+✓ Created new navigation tabs for AutoCAD Integration and 3D BIM
+✓ Fixed server startup issues by creating missing service files
 
 ## System Architecture
 

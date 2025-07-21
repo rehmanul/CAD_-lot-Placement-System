@@ -4,7 +4,7 @@ interface NavigationTabsProps {
 }
 
 export default function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
-  const tabs = ["Dashboard", "Analysis", "Results", "Export"];
+  const tabs = ["Dashboard", "AutoCAD Integration", "3D BIM", "Analysis", "Export"];
 
   return (
     <nav className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
