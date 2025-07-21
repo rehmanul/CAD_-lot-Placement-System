@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CADFile, Analysis } from "@shared/schema";
-import { Eye, Download, Maximize2 } from "lucide-react";
+import { Eye, Download, Maximize2, Activity } from "lucide-react";
 
 interface PixelPerfectFloorPlanProps {
   cadFile: CADFile;
@@ -283,6 +283,8 @@ export default function PixelPerfectFloorPlan({
             style={{ background: '#1f2937' }}
           />
         </div>
+        </div>
+      )}
       </CardContent>
     </Card>
   );
