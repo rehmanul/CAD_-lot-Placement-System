@@ -1,0 +1,44 @@
+[vite] connecting...
+[vite] connected.
+The requested module '/src/lib/api.ts?t=1753071888900' does not provide an export named 'api'
+[hmr] Failed to reload /src/components/EnhancedCADProcessor.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+at t.value (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+[vite] hot updated: /src/components/EnhancedCADProcessor.tsx
+[vite] hot updated: /src/index.css?v=9bNtra1z4WYNiAgLrKZdJ
+[vite] hot updated: /src/components/SystemMetrics.tsx
+[vite] hot updated: /src/components/ProcessingPipeline.tsx
+[vite] hot updated: /src/components/FileUploadArea.tsx
+[vite] hot updated: /src/components/PixelPerfectFloorPlan.tsx
+[vite] hot updated: /src/index.css?v=9bNtra1z4WYNiAgLrKZdJ
+Cannot read properties of undefined (reading 'charAt')
+The above error occurred in the <PixelPerfectFloorPlan> component:
+
+    at PixelPerfectFloorPlan (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/src/components/PixelPerfectFloorPlan.tsx?t=1753071888900:24:3)
+    at div
+    at https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5SOOSTSW.js?v=b744c935:42:13
+    at Presence (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-SD7QFEGY.js?v=b744c935:24:11)
+    at https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=b744c935:385:13
+    at _c5 (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/src/components/ui/tabs.tsx:72:12)
+    at div
+    at https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5SOOSTSW.js?v=b744c935:42:13
+    at Provider (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-XIZKKOCE.js?v=b744c935:22:15)
+    at https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=b744c935:263:7
+    at div
+    at EnhancedCADProcessor (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/src/components/EnhancedCADProcessor.tsx:27:3)
+    at main
+    at div
+    at div
+    at CADAnalysisApp (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/src/pages/CADAnalysisApp.tsx:32:37)
+    at Route (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b744c935:323:16)
+    at Switch (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b744c935:379:17)
+    at Router
+    at Provider (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-XIZKKOCE.js?v=b744c935:22:15)
+    at TooltipProvider (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b744c935:59:5)
+    at QueryClientProvider (https://fb9b171e-8e7a-4d80-8226-d5830bd53ffa-00-1td8uzqur39pa.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b744c935:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
