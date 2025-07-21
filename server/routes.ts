@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const cadFile = await storage.getCadFile(fileId);
+      const cadFile = await storage.getCADFile(fileId);
       if (!cadFile) {
         return res.status(404).json({
           error: "CAD file not found",
@@ -251,10 +251,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analysisId = await storage.createAnalysis({
         fileId,
         config: validation.data,
-        timestamp: new Date(),
         status: 'complete',
-        result,
-        processingType: 'pixel-perfect'
+        startTime: new Date(),
+        result
       });
 
       res.json({

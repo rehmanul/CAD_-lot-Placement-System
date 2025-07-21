@@ -392,8 +392,14 @@ async function processPDFFile(file: FileInput, id: string): Promise<CADFile> {
 }
 
 async function processImageFile(file: FileInput, id: string): Promise<CADFile> {
-  // Image processing requires computer vision libraries for floor plan recognition
-  throw new Error('Image file processing requires computer vision libraries for architectural recognition. Please use a vector-based CAD format like DXF.');
+  const { ImageProcessor } = await import('./imageProcessor');
+  const processor = new ImageProcessor();
+  
+  const result = await processor.processFloorPlanImage(file.buffer, file.originalname);
+  result.id = id;
+  result.size = formatFileSize(file.size);
+  
+  return result;
 }
 
 // Remove fake data generation - elements will only come from actual CAD file parsing

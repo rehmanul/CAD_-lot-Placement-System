@@ -116,7 +116,7 @@ class DatabaseStorage {
 
   async getStorageUsage(): Promise<{ totalSize: number; fileCount: number; analysisCount: number }> {
     let totalSize = 0;
-    for (const buffer of this.fileData.values()) {
+    for (const buffer of Array.from(this.fileData.values())) {
       totalSize += buffer.length;
     }
     
@@ -237,7 +237,7 @@ class DatabaseStorage {
       byFormat[file.format] = (byFormat[file.format] || 0) + 1;
     }
     
-    for (const buffer of this.fileData.values()) {
+    for (const buffer of Array.from(this.fileData.values())) {
       totalSize += buffer.length;
     }
     
