@@ -4,6 +4,12 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build client",
+    "build:server": "tsc server/index.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck",
+    "start": "NODE_ENV=production node dist/index.js",
+
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
