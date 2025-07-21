@@ -381,244 +381,22 @@ function detectUnits(dxfData: DXFData): 'mm' | 'cm' | 'm' | 'in' | 'ft' {
 }
 
 async function processDWGFile(file: FileInput, id: string): Promise<CADFile> {
-  console.log('Processing DWG file - extracting architectural data');
-  
-  const elements = generateEnhancedFloorPlanElements();
-  const layers = extractLayers(elements);
-  const dimensions = calculateDimensions(elements);
-  
-  return {
-    id,
-    name: file.originalname,
-    format: 'DWG',
-    size: formatFileSize(file.size),
-    scale: detectScale(elements, dimensions),
-    layers,
-    dimensions,
-    elements,
-    metadata: {
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-      units: 'mm'
-    },
-    uploadedAt: new Date()
-  };
+  // DWG processing requires specialized libraries like node-dxf or LibreDWG
+  // For now, this is a placeholder that will need real DWG parsing implementation
+  throw new Error('DWG file processing requires specialized libraries. Please convert to DXF format or use a supported format.');
 }
 
 async function processPDFFile(file: FileInput, id: string): Promise<CADFile> {
-  // PDF processing would use libraries like pdf2pic or PDF-lib for vector extraction
-  console.log('Processing PDF file - extracting architectural elements');
-  
-  return {
-    id,
-    name: file.originalname,
-    format: 'PDF',
-    size: formatFileSize(file.size),
-    scale: '1:100',
-    layers: ['Architecture', 'Text', 'Dimensions', 'Furniture'],
-    dimensions: { width: 1200, height: 800 },
-    elements: generateBasicFloorPlanElements(),
-    metadata: {
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-      units: 'mm'
-    },
-    uploadedAt: new Date()
-  };
+  // PDF processing requires libraries like pdf2pic or PDF-lib for vector extraction
+  throw new Error('PDF file processing requires specialized vector extraction libraries. Please convert to DXF format or use a supported format.');
 }
 
 async function processImageFile(file: FileInput, id: string): Promise<CADFile> {
-  // Image processing would use computer vision libraries for floor plan recognition
-  console.log('Processing image file - using CV analysis');
-  
-  return {
-    id,
-    name: file.originalname,
-    format: file.mimetype.split('/')[1].toUpperCase(),
-    size: formatFileSize(file.size),
-    scale: 'Unknown',
-    layers: ['Image Analysis', 'Detected Walls', 'Detected Openings'],
-    dimensions: { width: 800, height: 600 },
-    elements: generateBasicFloorPlanElements(),
-    metadata: {
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-      units: 'mm'
-    },
-    uploadedAt: new Date()
-  };
+  // Image processing requires computer vision libraries for floor plan recognition
+  throw new Error('Image file processing requires computer vision libraries for architectural recognition. Please use a vector-based CAD format like DXF.');
 }
 
-function generateBasicFloorPlanElements(): CADElement[] {
-  return generateEnhancedFloorPlanElements();
-}
-
-function generateEnhancedFloorPlanElements(): CADElement[] {
-  const elements: CADElement[] = [];
-  
-  // Building outline - realistic office space 30m x 20m
-  const buildingWidth = 30000; // 30m in mm
-  const buildingHeight = 20000; // 20m in mm
-  
-  // Outer walls (thick structural walls)
-  elements.push({
-    id: nanoid(),
-    type: 'wall',
-    geometry: {
-      type: 'line',
-      coordinates: [[0, 0], [buildingWidth, 0]],
-      bounds: { x: 0, y: 0, width: buildingWidth, height: 200 }
-    },
-    properties: { color: '#2D3748', lineWeight: 100, lineType: 'solid' },
-    layer: 'A-WALL-EXTR'
-  });
-  
-  elements.push({
-    id: nanoid(),
-    type: 'wall',
-    geometry: {
-      type: 'line',
-      coordinates: [[buildingWidth, 0], [buildingWidth, buildingHeight]],
-      bounds: { x: buildingWidth - 200, y: 0, width: 200, height: buildingHeight }
-    },
-    properties: { color: '#2D3748', lineWeight: 100, lineType: 'solid' },
-    layer: 'A-WALL-EXTR'
-  });
-  
-  elements.push({
-    id: nanoid(),
-    type: 'wall',
-    geometry: {
-      type: 'line',
-      coordinates: [[buildingWidth, buildingHeight], [0, buildingHeight]],
-      bounds: { x: 0, y: buildingHeight - 200, width: buildingWidth, height: 200 }
-    },
-    properties: { color: '#2D3748', lineWeight: 100, lineType: 'solid' },
-    layer: 'A-WALL-EXTR'
-  });
-  
-  elements.push({
-    id: nanoid(),
-    type: 'wall',
-    geometry: {
-      type: 'line',
-      coordinates: [[0, buildingHeight], [0, 0]],
-      bounds: { x: 0, y: 0, width: 200, height: buildingHeight }
-    },
-    properties: { color: '#2D3748', lineWeight: 100, lineType: 'solid' },
-    layer: 'A-WALL-EXTR'
-  });
-  
-  // Interior walls creating rooms
-  const corridorWidth = 1800; // 1.8m corridor
-  const roomDepth = 4000; // 4m room depth
-  
-  // Main corridor wall
-  elements.push({
-    id: nanoid(),
-    type: 'wall',
-    geometry: {
-      type: 'line',
-      coordinates: [[roomDepth, 1000], [roomDepth, buildingHeight - 1000]],
-      bounds: { x: roomDepth - 50, y: 1000, width: 100, height: buildingHeight - 2000 }
-    },
-    properties: { color: '#4A5568', lineWeight: 50, lineType: 'solid' },
-    layer: 'A-WALL-INTR'
-  });
-  
-  // Cross corridors
-  elements.push({
-    id: nanoid(),
-    type: 'wall',
-    geometry: {
-      type: 'line',
-      coordinates: [[1000, buildingHeight / 2], [buildingWidth - 1000, buildingHeight / 2]],
-      bounds: { x: 1000, y: buildingHeight / 2 - 50, width: buildingWidth - 2000, height: 100 }
-    },
-    properties: { color: '#4A5568', lineWeight: 50, lineType: 'solid' },
-    layer: 'A-WALL-INTR'
-  });
-  
-  // Room dividers
-  for (let i = 1; i < 4; i++) {
-    const yPos = (buildingHeight / 4) * i;
-    elements.push({
-      id: nanoid(),
-      type: 'wall',
-      geometry: {
-        type: 'line',
-        coordinates: [[roomDepth + corridorWidth, yPos], [buildingWidth - 1000, yPos]],
-        bounds: { x: roomDepth + corridorWidth, y: yPos - 50, width: buildingWidth - roomDepth - corridorWidth - 1000, height: 100 }
-      },
-      properties: { color: '#4A5568', lineWeight: 50, lineType: 'solid' },
-      layer: 'A-WALL-INTR'
-    });
-  }
-  
-  // Doors
-  const doorWidth = 900; // 90cm door
-  elements.push({
-    id: nanoid(),
-    type: 'door',
-    geometry: {
-      type: 'rectangle',
-      coordinates: [[0, buildingHeight / 2 - doorWidth / 2], [200, buildingHeight / 2 + doorWidth / 2]],
-      bounds: { x: 0, y: buildingHeight / 2 - doorWidth / 2, width: 200, height: doorWidth }
-    },
-    properties: { color: '#8B4513', lineWeight: 25, lineType: 'solid' },
-    layer: 'A-DOOR'
-  });
-  
-  // Emergency exits
-  elements.push({
-    id: nanoid(),
-    type: 'door',
-    geometry: {
-      type: 'rectangle',
-      coordinates: [[buildingWidth - 200, buildingHeight / 2 - doorWidth / 2], [buildingWidth, buildingHeight / 2 + doorWidth / 2]],
-      bounds: { x: buildingWidth - 200, y: buildingHeight / 2 - doorWidth / 2, width: 200, height: doorWidth }
-    },
-    properties: { color: '#DC2626', lineWeight: 25, lineType: 'solid' },
-    layer: 'A-DOOR-EMER'
-  });
-  
-  // Windows
-  const windowWidth = 1500;
-  for (let i = 0; i < 3; i++) {
-    const xPos = (buildingWidth / 4) * (i + 1) - windowWidth / 2;
-    elements.push({
-      id: nanoid(),
-      type: 'window',
-      geometry: {
-        type: 'rectangle',
-        coordinates: [[xPos, 0], [xPos + windowWidth, 200]],
-        bounds: { x: xPos, y: 0, width: windowWidth, height: 200 }
-      },
-      properties: { color: '#3182CE', lineWeight: 25, lineType: 'solid' },
-      layer: 'A-GLAZ'
-    });
-  }
-  
-  // Structural columns
-  const columnSize = 400;
-  for (let x = 6000; x < buildingWidth; x += 6000) {
-    for (let y = 5000; y < buildingHeight; y += 5000) {
-      elements.push({
-        id: nanoid(),
-        type: 'furniture',
-        geometry: {
-          type: 'rectangle',
-          coordinates: [[x - columnSize / 2, y - columnSize / 2], [x + columnSize / 2, y + columnSize / 2]],
-          bounds: { x: x - columnSize / 2, y: y - columnSize / 2, width: columnSize, height: columnSize }
-        },
-        properties: { color: '#1A202C', lineWeight: 75, lineType: 'solid' },
-        layer: 'S-COLS'
-      });
-    }
-  }
-  
-  return elements;
-}
+// Remove fake data generation - elements will only come from actual CAD file parsing
 
 function extractLayers(elements: CADElement[]): string[] {
   const layers = new Set<string>();
@@ -628,7 +406,7 @@ function extractLayers(elements: CADElement[]): string[] {
 
 function calculateDimensions(elements: CADElement[]): { width: number; height: number } {
   if (elements.length === 0) {
-    return { width: 100, height: 100 }; // Default minimum dimensions
+    return { width: 0, height: 0 };
   }
   
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -659,13 +437,13 @@ function calculateDimensions(elements: CADElement[]): { width: number; height: n
   });
   
   if (!hasValidBounds || minX === Infinity) {
-    return { width: 1000, height: 800 }; // Fallback dimensions
+    return { width: 0, height: 0 };
   }
   
-  const width = Math.max(100, maxX - minX);
-  const height = Math.max(100, maxY - minY);
+  const width = Math.abs(maxX - minX);
+  const height = Math.abs(maxY - minY);
   
-  return { width, height };
+  return { width: Math.round(width), height: Math.round(height) };
 }
 
 function detectScale(elements: CADElement[], dimensions: { width: number; height: number }): string {

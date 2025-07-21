@@ -34,17 +34,17 @@ export default function FileUploadArea({ uploadedFile, onFileUpload }: FileUploa
       }, 200);
 
       const result = await cadAPI.uploadFile(file);
-      
+
       clearInterval(progressInterval);
       setUploadState({ isUploading: false, progress: 100, error: null });
-      
+
       onFileUpload(result.data);
-      
+
       // Reset progress after success
       setTimeout(() => {
         setUploadState(prev => ({ ...prev, progress: 0 }));
       }, 2000);
-      
+
     } catch (error: any) {
       setUploadState({
         isUploading: false,
@@ -75,7 +75,7 @@ export default function FileUploadArea({ uploadedFile, onFileUpload }: FileUploa
         <Upload className="w-5 h-5 mr-2 text-blue-400" />
         CAD File Processing
       </h3>
-      
+
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-xs font-medium">DXF</span>
         <span className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-xs font-medium">DWG</span>
@@ -119,7 +119,7 @@ export default function FileUploadArea({ uploadedFile, onFileUpload }: FileUploa
             <p className="text-sm text-gray-500">Support for AutoCAD, SolidWorks, MicroStation formats</p>
           </>
         )}
-        
+
         <input
           id="file-input"
           type="file"
