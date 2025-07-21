@@ -9,7 +9,7 @@ interface ResultsVisualizationProps {
   analysisResults: any;
 }
 
-export function ResultsVisualization({ cadFile, analysisResults }: ResultsVisualizationProps) {
+export default function ResultsVisualization({ cadFile, analysisResults }: ResultsVisualizationProps) {
   if (!cadFile) {
     return (
       <Card className="metric-card">

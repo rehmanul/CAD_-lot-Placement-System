@@ -178,9 +178,8 @@ export default function CADAnalysisApp() {
                 />
               </div>
               <ResultsVisualization 
-                uploadedFile={uploadedFile} 
-                analysis={currentAnalysis}
-                isProcessing={isProcessing}
+                cadFile={uploadedFile} 
+                analysisResults={currentAnalysis}
               />
             </div>
           )}
@@ -191,9 +190,8 @@ export default function CADAnalysisApp() {
               {currentAnalysis && (
                 <div className="mt-6">
                   <ResultsVisualization 
-                    uploadedFile={uploadedFile} 
-                    analysis={currentAnalysis}
-                    isProcessing={false}
+                    cadFile={uploadedFile} 
+                    analysisResults={currentAnalysis}
                   />
                 </div>
               )}
