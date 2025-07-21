@@ -75,9 +75,10 @@ export default function PixelPerfectFloorPlan({
       analysis.result.ilots.forEach((ilot, index) => {
         // Set color based on îlot type
         let fillColor = '#3b82f6'; // Default blue
-        if (ilot.type === 'small') fillColor = '#10b981'; // Green
-        if (ilot.type === 'medium') fillColor = '#f59e0b'; // Orange
-        if (ilot.type === 'large') fillColor = '#ef4444'; // Red
+        const ilotType = ilot.type || 'unknown';
+        if (ilotType === 'small') fillColor = '#10b981'; // Green
+        if (ilotType === 'medium') fillColor = '#f59e0b'; // Orange
+        if (ilotType === 'large') fillColor = '#ef4444'; // Red
 
         ctx.fillStyle = fillColor + '80'; // Add transparency
         ctx.strokeStyle = fillColor;
@@ -97,8 +98,9 @@ export default function PixelPerfectFloorPlan({
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
+        const ilotType = ilot.type || 'unknown';
         ctx.fillText(
-          `${ilot.type.charAt(0).toUpperCase()}${index + 1}`,
+          `${ilotType.charAt(0).toUpperCase()}${index + 1}`,
           scaledX + scaledWidth / 2,
           scaledY + scaledHeight / 2 + 4
         );
