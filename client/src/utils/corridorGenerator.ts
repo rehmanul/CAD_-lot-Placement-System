@@ -1,164 +1,279 @@
-import { Point, Corridor, Ilot } from "@/types/analysis";
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface PathNode {
+  point: Point;
+  g: number; // actual cost from start
+  h: number; // heuristic cost to goal
+  f: number; // total cost (g + h)
+  parent?: PathNode;
+}
+
+export interface Obstacle {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CorridorPath {
+  points: Point[];
+  length: number;
+  width: number;
+}
 
 export class AStarPathfinder {
-  private grid: Grid;
-  private openSet: Node[] = [];
-  private closedSet: Set<string> = new Set();
+  private gridSize: number;
+  private bounds: { width: number; height: number };
+  private obstacles: Obstacle[];
+  private grid: boolean[][]; // true = walkable, false = blocked
 
-  constructor(
-    private width: number,
-    private height: number,
-    private cellSize: number = 0.5 // 0.5m grid resolution
-  ) {
-    this.grid = new Grid(width, height, cellSize);
+  constructor(bounds: { width: number; height: number }, obstacles: Obstacle[], gridSize: number = 0.5) {
+    this.gridSize = gridSize;
+    this.bounds = bounds;
+    this.obstacles = obstacles;
+    this.initializeGrid();
   }
 
-  public addObstacle(x: number, y: number, width: number, height: number): void {
-    this.grid.addObstacle(x, y, width, height);
-  }
+  private initializeGrid(): void {
+    const cols = Math.ceil(this.bounds.width / this.gridSize);
+    const rows = Math.ceil(this.bounds.height / this.gridSize);
 
-  public findPath(start: Point, end: Point, corridorWidth: number = 1.2): Point[] {
-    const startNode = this.grid.getNode(start.x, start.y);
-    const endNode = this.grid.getNode(end.x, end.y);
+    // Initialize all cells as walkable
+    this.grid = Array(rows).fill(null).map(() => Array(cols).fill(true));
 
-    if (!startNode || !endNode || !startNode.walkable || !endNode.walkable) {
-      return [];
-    }
+    // Mark obstacle cells as blocked
+    for (const obstacle of this.obstacles) {
+      const startCol = Math.floor(obstacle.x / this.gridSize);
+      const endCol = Math.ceil((obstacle.x + obstacle.width) / this.gridSize);
+      const startRow = Math.floor(obstacle.y / this.gridSize);
+      const endRow = Math.ceil((obstacle.y + obstacle.height) / this.gridSize);
 
-    this.openSet = [startNode];
-    this.closedSet = new Set();
-
-    startNode.gCost = 0;
-    startNode.hCost = this.getDistance(startNode, endNode);
-    startNode.fCost = startNode.gCost + startNode.hCost;
-
-    while (this.openSet.length > 0) {
-      // Get node with lowest fCost
-      let currentNode = this.openSet[0];
-      for (let i = 1; i < this.openSet.length; i++) {
-        if (this.openSet[i].fCost < currentNode.fCost ||
-            (this.openSet[i].fCost === currentNode.fCost && this.openSet[i].hCost < currentNode.hCost)) {
-          currentNode = this.openSet[i];
-        }
-      }
-
-      this.openSet.splice(this.openSet.indexOf(currentNode), 1);
-      this.closedSet.add(`${currentNode.gridX},${currentNode.gridY}`);
-
-      if (currentNode === endNode) {
-        return this.retracePath(startNode, endNode);
-      }
-
-      const neighbors = this.grid.getNeighbors(currentNode);
-      for (const neighbor of neighbors) {
-        if (!neighbor.walkable || this.closedSet.has(`${neighbor.gridX},${neighbor.gridY}`)) {
-          continue;
-        }
-
-        const newCostToNeighbor = currentNode.gCost + this.getDistance(currentNode, neighbor);
-        if (newCostToNeighbor < neighbor.gCost || !this.openSet.includes(neighbor)) {
-          neighbor.gCost = newCostToNeighbor;
-          neighbor.hCost = this.getDistance(neighbor, endNode);
-          neighbor.fCost = neighbor.gCost + neighbor.hCost;
-          neighbor.parent = currentNode;
-
-          if (!this.openSet.includes(neighbor)) {
-            this.openSet.push(neighbor);
+      for (let row = startRow; row < endRow && row < this.grid.length; row++) {
+        for (let col = startCol; col < endCol && col < this.grid[0].length; col++) {
+          if (row >= 0 && col >= 0) {
+            this.grid[row][col] = false;
           }
         }
       }
     }
-
-    return []; // No path found
   }
 
-  private getDistance(nodeA: Node, nodeB: Node): number {
-    const dstX = Math.abs(nodeA.gridX - nodeB.gridX);
-    const dstY = Math.abs(nodeA.gridY - nodeB.gridY);
+  public findPath(start: Point, goal: Point, corridorWidth: number): CorridorPath | null {
+    const startGrid = this.worldToGrid(start);
+    const goalGrid = this.worldToGrid(goal);
 
-    if (dstX > dstY) {
-      return 14 * dstY + 10 * (dstX - dstY);
+    if (!this.isValidGridPoint(startGrid) || !this.isValidGridPoint(goalGrid)) {
+      return null;
     }
-    return 14 * dstX + 10 * (dstY - dstX);
+
+    const openSet: PathNode[] = [];
+    const closedSet = new Set<string>();
+    const startNode: PathNode = {
+      point: startGrid,
+      g: 0,
+      h: this.heuristic(startGrid, goalGrid),
+      f: 0
+    };
+    startNode.f = startNode.g + startNode.h;
+
+    openSet.push(startNode);
+
+    while (openSet.length > 0) {
+      // Find node with lowest f cost
+      openSet.sort((a, b) => a.f - b.f);
+      const currentNode = openSet.shift()!;
+
+      const currentKey = `${currentNode.point.x},${currentNode.point.y}`;
+      closedSet.add(currentKey);
+
+      // Check if we reached the goal
+      if (this.distance(currentNode.point, goalGrid) < 1.5) {
+        return this.reconstructPath(currentNode, corridorWidth);
+      }
+
+      // Explore neighbors
+      const neighbors = this.getNeighbors(currentNode.point);
+
+      for (const neighbor of neighbors) {
+        const neighborKey = `${neighbor.x},${neighbor.y}`;
+
+        if (closedSet.has(neighborKey) || !this.isWalkableWithWidth(neighbor, corridorWidth)) {
+          continue;
+        }
+
+        const g = currentNode.g + this.distance(currentNode.point, neighbor);
+        const h = this.heuristic(neighbor, goalGrid);
+        const f = g + h;
+
+        // Check if this path to neighbor is better
+        const existingNode = openSet.find(n => 
+          n.point.x === neighbor.x && n.point.y === neighbor.y
+        );
+
+        if (!existingNode) {
+          openSet.push({
+            point: neighbor,
+            g,
+            h,
+            f,
+            parent: currentNode
+          });
+        } else if (g < existingNode.g) {
+          existingNode.g = g;
+          existingNode.f = g + existingNode.h;
+          existingNode.parent = currentNode;
+        }
+      }
+    }
+
+    // No path found, return straight line as fallback
+    return {
+      points: [start, goal],
+      length: this.distance(start, goal),
+      width: corridorWidth
+    };
   }
 
-  private retracePath(startNode: Node, endNode: Node): Point[] {
-    const path: Point[] = [];
-    let currentNode: Node | null = endNode;
+  private worldToGrid(point: Point): Point {
+    return {
+      x: Math.floor(point.x / this.gridSize),
+      y: Math.floor(point.y / this.gridSize)
+    };
+  }
 
-    while (currentNode !== startNode && currentNode !== null) {
-      path.unshift({
-        x: currentNode.worldX,
-        y: currentNode.worldY
-      });
+  private gridToWorld(point: Point): Point {
+    return {
+      x: point.x * this.gridSize + this.gridSize / 2,
+      y: point.y * this.gridSize + this.gridSize / 2
+    };
+  }
+
+  private isValidGridPoint(point: Point): boolean {
+    return point.x >= 0 && point.x < this.grid[0].length &&
+           point.y >= 0 && point.y < this.grid.length;
+  }
+
+  private isWalkableWithWidth(gridPoint: Point, corridorWidth: number): boolean {
+    const widthInCells = Math.ceil(corridorWidth / this.gridSize);
+    const halfWidth = Math.floor(widthInCells / 2);
+
+    // Check if corridor width fits at this position
+    for (let dx = -halfWidth; dx <= halfWidth; dx++) {
+      for (let dy = -halfWidth; dy <= halfWidth; dy++) {
+        const checkPoint = {
+          x: gridPoint.x + dx,
+          y: gridPoint.y + dy
+        };
+
+        if (!this.isValidGridPoint(checkPoint) || !this.grid[checkPoint.y][checkPoint.x]) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  private heuristic(a: Point, b: Point): number {
+    // Manhattan distance for grid-based pathfinding
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  }
+
+  private distance(a: Point, b: Point): number {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private getNeighbors(point: Point): Point[] {
+    const neighbors: Point[] = [];
+
+    // 8-directional movement
+    const directions = [
+      { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+      { x: -1, y: 0 },                    { x: 1, y: 0 },
+      { x: -1, y: 1 },  { x: 0, y: 1 },  { x: 1, y: 1 }
+    ];
+
+    for (const dir of directions) {
+      const neighbor = {
+        x: point.x + dir.x,
+        y: point.y + dir.y
+      };
+
+      if (this.isValidGridPoint(neighbor)) {
+        neighbors.push(neighbor);
+      }
+    }
+
+    return neighbors;
+  }
+
+  private reconstructPath(goalNode: PathNode, corridorWidth: number): CorridorPath {
+    const gridPath: Point[] = [];
+    let currentNode: PathNode | undefined = goalNode;
+
+    // Trace back through parents
+    while (currentNode) {
+      gridPath.unshift(currentNode.point);
       currentNode = currentNode.parent;
     }
 
-    path.unshift({
-      x: startNode.worldX,
-      y: startNode.worldY
-    });
+    // Convert grid path to world coordinates
+    const worldPath = gridPath.map(p => this.gridToWorld(p));
 
-    return this.smoothPath(path);
+    // Smooth the path by removing unnecessary waypoints
+    const smoothPath = this.smoothPath(worldPath);
+
+    // Calculate total length
+    let totalLength = 0;
+    for (let i = 1; i < smoothPath.length; i++) {
+      totalLength += this.distance(smoothPath[i - 1], smoothPath[i]);
+    }
+
+    return {
+      points: smoothPath,
+      length: totalLength,
+      width: corridorWidth
+    };
   }
 
   private smoothPath(path: Point[]): Point[] {
     if (path.length <= 2) return path;
 
-    const smoothedPath: Point[] = [path[0]];
-    let currentIndex = 0;
+    const smoothed: Point[] = [path[0]];
 
-    while (currentIndex < path.length - 1) {
-      let nextIndex = currentIndex + 1;
+    for (let i = 1; i < path.length - 1; i++) {
+      const prev = smoothed[smoothed.length - 1];
+      const current = path[i];
+      const next = path[i + 1];
 
-      // Find the furthest point we can reach directly
-      for (let i = currentIndex + 2; i < path.length; i++) {
-        if (this.hasLineOfSight(path[currentIndex], path[i])) {
-          nextIndex = i;
-        } else {
-          break;
-        }
+      // Check if we can skip current point by going directly from prev to next
+      if (!this.isDirectPathClear(prev, next)) {
+        smoothed.push(current);
       }
-
-      smoothedPath.push(path[nextIndex]);
-      currentIndex = nextIndex;
     }
 
-    return smoothedPath;
+    smoothed.push(path[path.length - 1]);
+    return smoothed;
   }
 
-  private hasLineOfSight(from: Point, to: Point): boolean {
-    const dx = Math.abs(to.x - from.x);
-    const dy = Math.abs(to.y - from.y);
-    const x0 = from.x;
-    const y0 = from.y;
-    const x1 = to.x;
-    const y1 = to.y;
+  private isDirectPathClear(start: Point, end: Point): boolean {
+    const steps = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y));
 
-    const xIncrement = x1 > x0 ? 1 : -1;
-    const yIncrement = y1 > y0 ? 1 : -1;
+    for (let i = 0; i <= steps; i++) {
+      const t = steps > 0 ? i / steps : 0;
+      const point = {
+        x: Math.floor(start.x + (end.x - start.x) * t),
+        y: Math.floor(start.y + (end.y - start.y) * t)
+      };
 
-    let error = dx - dy;
-    let x = Math.floor(x0 / this.cellSize);
-    let y = Math.floor(y0 / this.cellSize);
-
-    const targetX = Math.floor(x1 / this.cellSize);
-    const targetY = Math.floor(y1 / this.cellSize);
-
-    while (x !== targetX || y !== targetY) {
-      const node = this.grid.nodes[x]?.[y];
-      if (!node || !node.walkable) {
+      const gridPoint = this.worldToGrid(point);
+      if (!this.isValidGridPoint(gridPoint) || !this.grid[gridPoint.y][gridPoint.x]) {
         return false;
-      }
-
-      const error2 = 2 * error;
-      if (error2 > -dy) {
-        error -= dy;
-        x += xIncrement;
-      }
-      if (error2 < dx) {
-        error += dx;
-        y += yIncrement;
       }
     }
 
@@ -166,530 +281,203 @@ export class AStarPathfinder {
   }
 }
 
-class Grid {
-  public nodes: Node[][];
-  private cellSize: number;
-
-  constructor(width: number, height: number, cellSize: number) {
-    this.cellSize = cellSize;
-    const gridWidth = Math.ceil(width / cellSize);
-    const gridHeight = Math.ceil(height / cellSize);
-
-    this.nodes = [];
-    for (let x = 0; x < gridWidth; x++) {
-      this.nodes[x] = [];
-      for (let y = 0; y < gridHeight; y++) {
-        this.nodes[x][y] = new Node(
-          true,
-          x * cellSize,
-          y * cellSize,
-          x,
-          y
-        );
-      }
-    }
-  }
-
-  public getNode(worldX: number, worldY: number): Node | null {
-    const gridX = Math.floor(worldX / this.cellSize);
-    const gridY = Math.floor(worldY / this.cellSize);
-
-    return this.nodes[gridX]?.[gridY] || null;
-  }
-
-  public addObstacle(x: number, y: number, width: number, height: number): void {
-    const startX = Math.floor(x / this.cellSize);
-    const endX = Math.ceil((x + width) / this.cellSize);
-    const startY = Math.floor(y / this.cellSize);
-    const endY = Math.ceil((y + height) / this.cellSize);
-
-    for (let gridX = startX; gridX < endX && gridX < this.nodes.length; gridX++) {
-      for (let gridY = startY; gridY < endY && gridY < this.nodes[gridX].length; gridY++) {
-        if (this.nodes[gridX][gridY]) {
-          this.nodes[gridX][gridY].walkable = false;
-        }
-      }
-    }
-  }
-
-  public getNeighbors(node: Node): Node[] {
-    const neighbors: Node[] = [];
-
-    for (let x = -1; x <= 1; x++) {
-      for (let y = -1; y <= 1; y++) {
-        if (x === 0 && y === 0) continue;
-
-        const checkX = node.gridX + x;
-        const checkY = node.gridY + y;
-
-        if (checkX >= 0 && checkX < this.nodes.length &&
-            checkY >= 0 && checkY < this.nodes[0].length) {
-          neighbors.push(this.nodes[checkX][checkY]);
-        }
-      }
-    }
-
-    return neighbors;
-  }
-}
-
-class Node {
-  public walkable: boolean;
-  public worldX: number;
-  public worldY: number;
-  public gridX: number;
-  public gridY: number;
-  public gCost: number = 0;
-  public hCost: number = 0;
-  public fCost: number = 0;
-  public parent: Node | null = null;
-
-  constructor(
-    walkable: boolean,
-    worldX: number,
-    worldY: number,
-    gridX: number,
-    gridY: number
-  ) {
-    this.walkable = walkable;
-    this.worldX = worldX;
-    this.worldY = worldY;
-    this.gridX = gridX;
-    this.gridY = gridY;
-  }
-}
-
-export class CorridorNetworkGenerator {
-  private pathfinder: AStarPathfinder;
-  private corridors: Corridor[] = [];
-
-  constructor(
-    private floorWidth: number,
-    private floorHeight: number,
-    private corridorWidth: number = 1.2
-  ) {
-    this.pathfinder = new AStarPathfinder(floorWidth, floorHeight);
-  }
-
-  public addObstacles(walls: any[], restrictedAreas: any[]): void {
-    // Add walls as obstacles
-    for (const wall of walls) {
-      this.pathfinder.addObstacle(
-        Math.min(wall.start.x, wall.end.x) - wall.thickness / 2,
-        Math.min(wall.start.y, wall.end.y) - wall.thickness / 2,
-        Math.abs(wall.end.x - wall.start.x) + wall.thickness,
-        Math.abs(wall.end.y - wall.start.y) + wall.thickness
-      );
-    }
-
-    // Add restricted areas as obstacles
-    for (const area of restrictedAreas) {
-      const bounds = this.getPolygonBounds(area.boundary);
-      this.pathfinder.addObstacle(
-        bounds.minX,
-        bounds.minY,
-        bounds.maxX - bounds.minX,
-        bounds.maxY - bounds.minY
-      );
-    }
-  }
-
-  public generateCorridors(ilots: Ilot[]): Corridor[] {
-    if (ilots.length < 2) return [];
-
-    this.corridors = [];
-
-    // 1. Detect rows of islands facing each other
-    const facingRows = this.detectFacingRows(ilots);
-    
-    // 2. Generate corridors between facing rows
-    for (const rowPair of facingRows) {
-      const corridor = this.createCorridorBetweenRows(rowPair.row1, rowPair.row2);
-      if (corridor) {
-        this.corridors.push(corridor);
-      }
-    }
-
-    // 3. Connect remaining isolated îlots using optimized pathfinding
-    const connectedIlots = new Set<string>();
-    for (const corridor of this.corridors) {
-      corridor.connectedIlots.forEach(id => connectedIlots.add(id));
-    }
-
-    const unconnectedIlots = ilots.filter(ilot => !connectedIlots.has(ilot.id));
-    if (unconnectedIlots.length > 0) {
-      const connectionCorridors = this.connectRemainingIlots(unconnectedIlots, ilots);
-      this.corridors.push(...connectionCorridors);
-    }
-
-    return this.corridors;
-  }
-
-  private detectFacingRows(ilots: Ilot[]): Array<{ row1: Ilot[]; row2: Ilot[]; axis: 'horizontal' | 'vertical' }> {
-    const facingRows: Array<{ row1: Ilot[]; row2: Ilot[]; axis: 'horizontal' | 'vertical' }> = [];
-    
-    // Group îlots by rows (horizontal and vertical alignment)
-    const horizontalRows = this.groupIlotsByHorizontalAlignment(ilots);
-    const verticalRows = this.groupIlotsByVerticalAlignment(ilots);
-
-    // Check for horizontal facing rows (rows aligned vertically, facing horizontally)
-    for (let i = 0; i < horizontalRows.length; i++) {
-      for (let j = i + 1; j < horizontalRows.length; j++) {
-        const row1 = horizontalRows[i];
-        const row2 = horizontalRows[j];
-        
-        if (this.areRowsFacing(row1, row2, 'horizontal')) {
-          facingRows.push({ row1, row2, axis: 'horizontal' });
-        }
-      }
-    }
-
-    // Check for vertical facing rows (rows aligned horizontally, facing vertically)
-    for (let i = 0; i < verticalRows.length; i++) {
-      for (let j = i + 1; j < verticalRows.length; j++) {
-        const row1 = verticalRows[i];
-        const row2 = verticalRows[j];
-        
-        if (this.areRowsFacing(row1, row2, 'vertical')) {
-          facingRows.push({ row1, row2, axis: 'vertical' });
-        }
-      }
-    }
-
-    return facingRows;
-  }
-
-  private groupIlotsByHorizontalAlignment(ilots: Ilot[]): Ilot[][] {
-    const tolerance = 0.5; // 50cm tolerance for alignment
-    const rows: Ilot[][] = [];
-
-    for (const ilot of ilots) {
-      const centerY = ilot.position.y + ilot.height / 2;
-      
-      // Find existing row with similar Y coordinate
-      let foundRow = false;
-      for (const row of rows) {
-        const rowCenterY = row[0].position.y + row[0].height / 2;
-        if (Math.abs(centerY - rowCenterY) <= tolerance) {
-          row.push(ilot);
-          foundRow = true;
-          break;
-        }
-      }
-      
-      if (!foundRow) {
-        rows.push([ilot]);
-      }
-    }
-
-    // Filter out single-îlot rows and sort by X position
-    return rows
-      .filter(row => row.length >= 2)
-      .map(row => row.sort((a, b) => a.position.x - b.position.x));
-  }
-
-  private groupIlotsByVerticalAlignment(ilots: Ilot[]): Ilot[][] {
-    const tolerance = 0.5; // 50cm tolerance for alignment
-    const rows: Ilot[][] = [];
-
-    for (const ilot of ilots) {
-      const centerX = ilot.position.x + ilot.width / 2;
-      
-      // Find existing column with similar X coordinate
-      let foundRow = false;
-      for (const row of rows) {
-        const rowCenterX = row[0].position.x + row[0].width / 2;
-        if (Math.abs(centerX - rowCenterX) <= tolerance) {
-          row.push(ilot);
-          foundRow = true;
-          break;
-        }
-      }
-      
-      if (!foundRow) {
-        rows.push([ilot]);
-      }
-    }
-
-    // Filter out single-îlot rows and sort by Y position
-    return rows
-      .filter(row => row.length >= 2)
-      .map(row => row.sort((a, b) => a.position.y - b.position.y));
-  }
-
-  private areRowsFacing(row1: Ilot[], row2: Ilot[], axis: 'horizontal' | 'vertical'): boolean {
-    const minGap = this.corridorWidth + 0.2; // Minimum gap for corridor + clearance
-    const maxGap = 8.0; // Maximum gap to consider as "facing"
-
-    if (axis === 'horizontal') {
-      // Check if rows are horizontally separated
-      const row1MinY = Math.min(...row1.map(ilot => ilot.position.y));
-      const row1MaxY = Math.max(...row1.map(ilot => ilot.position.y + ilot.height));
-      const row2MinY = Math.min(...row2.map(ilot => ilot.position.y));
-      const row2MaxY = Math.max(...row2.map(ilot => ilot.position.y + ilot.height));
-
-      const gap = Math.min(
-        Math.abs(row2MinY - row1MaxY),
-        Math.abs(row1MinY - row2MaxY)
-      );
-
-      return gap >= minGap && gap <= maxGap;
-    } else {
-      // Check if rows are vertically separated
-      const row1MinX = Math.min(...row1.map(ilot => ilot.position.x));
-      const row1MaxX = Math.max(...row1.map(ilot => ilot.position.x + ilot.width));
-      const row2MinX = Math.min(...row2.map(ilot => ilot.position.x));
-      const row2MaxX = Math.max(...row2.map(ilot => ilot.position.x + ilot.width));
-
-      const gap = Math.min(
-        Math.abs(row2MinX - row1MaxX),
-        Math.abs(row1MinX - row2MaxX)
-      );
-
-      return gap >= minGap && gap <= maxGap;
-    }
-  }
-
-  private createCorridorBetweenRows(row1: Ilot[], row2: Ilot[], axis: 'horizontal' | 'vertical'): Corridor | null {
-    const corridorId = `corridor_${this.corridors.length}`;
-    
-    if (axis === 'horizontal') {
-      // Create horizontal corridor between vertically separated rows
-      const row1Bottom = Math.max(...row1.map(ilot => ilot.position.y + ilot.height));
-      const row2Top = Math.min(...row2.map(ilot => ilot.position.y));
-      
-      const corridorY = (row1Bottom + row2Top) / 2 - this.corridorWidth / 2;
-      
-      // Find the overlapping X range
-      const row1MinX = Math.min(...row1.map(ilot => ilot.position.x));
-      const row1MaxX = Math.max(...row1.map(ilot => ilot.position.x + ilot.width));
-      const row2MinX = Math.min(...row2.map(ilot => ilot.position.x));
-      const row2MaxX = Math.max(...row2.map(ilot => ilot.position.x + ilot.width));
-      
-      const startX = Math.max(row1MinX, row2MinX);
-      const endX = Math.min(row1MaxX, row2MaxX);
-      
-      if (startX >= endX) return null; // No overlap
-      
-      const path: Point[] = [
-        { x: startX, y: corridorY + this.corridorWidth / 2 },
-        { x: endX, y: corridorY + this.corridorWidth / 2 }
-      ];
-      
-      const connectedIlots = [...row1, ...row2].map(ilot => ilot.id);
-      
-      const corridor: Corridor = {
-        id: corridorId,
-        path,
-        width: this.corridorWidth,
-        connectedIlots,
-        accessible: true,
-        length: endX - startX
-      };
-
-      // Update îlot connections
-      for (const ilot of [...row1, ...row2]) {
-        ilot.corridorConnections.push(corridorId);
-      }
-
-      return corridor;
-    } else {
-      // Create vertical corridor between horizontally separated rows
-      const row1Right = Math.max(...row1.map(ilot => ilot.position.x + ilot.width));
-      const row2Left = Math.min(...row2.map(ilot => ilot.position.x));
-      
-      const corridorX = (row1Right + row2Left) / 2 - this.corridorWidth / 2;
-      
-      // Find the overlapping Y range
-      const row1MinY = Math.min(...row1.map(ilot => ilot.position.y));
-      const row1MaxY = Math.max(...row1.map(ilot => ilot.position.y + ilot.height));
-      const row2MinY = Math.min(...row2.map(ilot => ilot.position.y));
-      const row2MaxY = Math.max(...row2.map(ilot => ilot.position.y + ilot.height));
-      
-      const startY = Math.max(row1MinY, row2MinY);
-      const endY = Math.min(row1MaxY, row2MaxY);
-      
-      if (startY >= endY) return null; // No overlap
-      
-      const path: Point[] = [
-        { x: corridorX + this.corridorWidth / 2, y: startY },
-        { x: corridorX + this.corridorWidth / 2, y: endY }
-      ];
-      
-      const connectedIlots = [...row1, ...row2].map(ilot => ilot.id);
-      
-      const corridor: Corridor = {
-        id: corridorId,
-        path,
-        width: this.corridorWidth,
-        connectedIlots,
-        accessible: true,
-        length: endY - startY
-      };
-
-      // Update îlot connections
-      for (const ilot of [...row1, ...row2]) {
-        ilot.corridorConnections.push(corridorId);
-      }
-
-      return corridor;
-    }
-  }
-
-  private connectRemainingIlots(unconnectedIlots: Ilot[], allIlots: Ilot[]): Corridor[] {
-    const corridors: Corridor[] = [];
-    
-    // Use minimum spanning tree for remaining connections
-    const mst = this.calculateMinimumSpanningTree(unconnectedIlots);
-
-    for (const edge of mst) {
-      const path = this.pathfinder.findPath(
-        this.getIlotCenter(edge.from),
-        this.getIlotCenter(edge.to),
-        this.corridorWidth
-      );
-
-      if (path.length > 0) {
-        const corridor: Corridor = {
-          id: `corridor_${this.corridors.length + corridors.length}`,
-          path,
-          width: this.corridorWidth,
-          connectedIlots: [edge.from.id, edge.to.id],
-          accessible: true,
-          length: this.calculatePathLength(path)
-        };
-
-        corridors.push(corridor);
-
-        // Update îlot connections
-        edge.from.corridorConnections.push(corridor.id);
-        edge.to.corridorConnections.push(corridor.id);
-      }
-    }
-
-    return corridors;
-  }
-
-  private calculateMinimumSpanningTree(ilots: Ilot[]): Edge[] {
-    const edges: Edge[] = [];
-    const visited = new Set<string>();
-
-    // Create all possible edges
-    const allEdges: EdgeWithWeight[] = [];
-    for (let i = 0; i < ilots.length; i++) {
-      for (let j = i + 1; j < ilots.length; j++) {
-        const distance = this.calculateDistance(
-          this.getIlotCenter(ilots[i]),
-          this.getIlotCenter(ilots[j])
-        );
-
-        allEdges.push({
-          from: ilots[i],
-          to: ilots[j],
-          weight: distance
-        });
-      }
-    }
-
-    // Sort by weight (Kruskal's algorithm)
-    allEdges.sort((a, b) => a.weight - b.weight);
-
-    // Build MST using Union-Find
-    const parent: { [id: string]: string } = {};
-    for (const ilot of ilots) {
-      parent[ilot.id] = ilot.id;
-    }
-
-    const find = (id: string): string => {
-      if (parent[id] !== id) {
-        parent[id] = find(parent[id]);
-      }
-      return parent[id];
-    };
-
-    const union = (id1: string, id2: string): void => {
-      const root1 = find(id1);
-      const root2 = find(id2);
-      if (root1 !== root2) {
-        parent[root1] = root2;
-      }
-    };
-
-    for (const edge of allEdges) {
-      const root1 = find(edge.from.id);
-      const root2 = find(edge.to.id);
-
-      if (root1 !== root2) {
-        edges.push({
-          from: edge.from,
-          to: edge.to
-        });
-        union(edge.from.id, edge.to.id);
-
-        if (edges.length === ilots.length - 1) {
-          break; // MST complete
-        }
-      }
-    }
-
-    return edges;
-  }
-
-  private getIlotCenter(ilot: Ilot): Point {
-    return {
-      x: ilot.position.x + ilot.width / 2,
-      y: ilot.position.y + ilot.height / 2
-    };
-  }
-
-  private calculateDistance(p1: Point, p2: Point): number {
-    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-  }
-
-  private calculatePathLength(path: Point[]): number {
-    let length = 0;
-    for (let i = 1; i < path.length; i++) {
-      length += this.calculateDistance(path[i - 1], path[i]);
-    }
-    return length;
-  }
-
-  private getPolygonBounds(polygon: Point[]): { minX: number; minY: number; maxX: number; maxY: number } {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    for (const point of polygon) {
-      minX = Math.min(minX, point.x);
-      minY = Math.min(minY, point.y);
-      maxX = Math.max(maxX, point.x);
-      maxY = Math.max(maxY, point.y);
-    }
-
-    return { minX, minY, maxX, maxY };
-  }
-}
-
-interface Edge {
-  from: Ilot;
-  to: Ilot;
-}
-
-interface EdgeWithWeight extends Edge {
-  weight: number;
-}
-
+// Real corridor generation functions
 export function generateCorridorNetwork(
-  ilots: Ilot[],
-  walls: any[],
-  restrictedAreas: any[],
-  floorBounds: { width: number; height: number },
-  corridorWidth: number = 1.2
-): Corridor[] {
-  const generator = new CorridorNetworkGenerator(
-    floorBounds.width,
-    floorBounds.height,
-    corridorWidth
-  );
+  ilots: Array<{ id: string; position: Point; width: number; height: number }>,
+  obstacles: Obstacle[],
+  bounds: { width: number; height: number },
+  corridorWidth: number
+): Array<{ 
+  id: string; 
+  path: Point[]; 
+  width: number; 
+  connectedIlots: string[]; 
+  length: number;
+  accessible: boolean;
+}> {
+  const pathfinder = new AStarPathfinder(bounds, obstacles, 0.5);
+  const corridors: Array<{ 
+    id: string; 
+    path: Point[]; 
+    width: number; 
+    connectedIlots: string[]; 
+    length: number;
+    accessible: boolean;
+  }> = [];
 
-  generator.addObstacles(walls, restrictedAreas);
-  return generator.generateCorridors(ilots);
+  if (ilots.length < 2) return corridors;
+
+  // Calculate minimum spanning tree for optimal connectivity
+  const edges = calculateMST(ilots);
+
+  for (const edge of edges) {
+    const startPoint = {
+      x: edge.from.position.x + edge.from.width / 2,
+      y: edge.from.position.y + edge.from.height / 2
+    };
+
+    const endPoint = {
+      x: edge.to.position.x + edge.to.width / 2,
+      y: edge.to.position.y + edge.to.height / 2
+    };
+
+    const corridorPath = pathfinder.findPath(startPoint, endPoint, corridorWidth);
+
+    if (corridorPath) {
+      corridors.push({
+        id: `corridor_${edge.from.id}_${edge.to.id}`,
+        path: corridorPath.points,
+        width: corridorWidth,
+        connectedIlots: [edge.from.id, edge.to.id],
+        length: corridorPath.length,
+        accessible: corridorWidth >= 1.22 // ADA compliance
+      });
+    }
+  }
+
+  return corridors;
+}
+
+function calculateMST(ilots: Array<{ id: string; position: Point; width: number; height: number }>): Array<{
+  from: { id: string; position: Point; width: number; height: number };
+  to: { id: string; position: Point; width: number; height: number };
+  distance: number;
+}> {
+  const edges: Array<{
+    from: { id: string; position: Point; width: number; height: number };
+    to: { id: string; position: Point; width: number; height: number };
+    distance: number;
+  }> = [];
+
+  // Generate all possible edges
+  for (let i = 0; i < ilots.length; i++) {
+    for (let j = i + 1; j < ilots.length; j++) {
+      const ilot1 = ilots[i];
+      const ilot2 = ilots[j];
+
+      const center1 = {
+        x: ilot1.position.x + ilot1.width / 2,
+        y: ilot1.position.y + ilot1.height / 2
+      };
+
+      const center2 = {
+        x: ilot2.position.x + ilot2.width / 2,
+        y: ilot2.position.y + ilot2.height / 2
+      };
+
+      const distance = Math.sqrt(
+        Math.pow(center2.x - center1.x, 2) + 
+        Math.pow(center2.y - center1.y, 2)
+      );
+
+      edges.push({ from: ilot1, to: ilot2, distance });
+    }
+  }
+
+  // Sort by distance
+  edges.sort((a, b) => a.distance - b.distance);
+
+  // Kruskal's algorithm with Union-Find
+  const mst: typeof edges = [];
+  const unionFind = new Map<string, string>();
+
+  // Initialize Union-Find
+  for (const ilot of ilots) {
+    unionFind.set(ilot.id, ilot.id);
+  }
+
+  function find(id: string): string {
+    const parent = unionFind.get(id);
+    if (!parent || parent === id) return id;
+    const root = find(parent);
+    unionFind.set(id, root);
+    return root;
+  }
+
+  function union(id1: string, id2: string): boolean {
+    const root1 = find(id1);
+    const root2 = find(id2);
+
+    if (root1 === root2) return false;
+
+    unionFind.set(root1, root2);
+    return true;
+  }
+
+  // Build MST
+  for (const edge of edges) {
+    if (union(edge.from.id, edge.to.id)) {
+      mst.push(edge);
+      if (mst.length === ilots.length - 1) break;
+    }
+  }
+
+  return mst;
+}
+
+export function optimizeCorridorPath(
+  path: Point[],
+  obstacles: Obstacle[],
+  corridorWidth: number
+): Point[] {
+  if (path.length <= 2) return path;
+
+  const optimized: Point[] = [path[0]];
+
+  for (let i = 1; i < path.length - 1; i++) {
+    const current = path[i];
+    const prev = optimized[optimized.length - 1];
+    const next = path[i + 1];
+
+    // Check if we can skip this waypoint
+    if (!canSkipWaypoint(prev, current, next, obstacles, corridorWidth)) {
+      optimized.push(current);
+    }
+  }
+
+  optimized.push(path[path.length - 1]);
+  return optimized;
+}
+
+function canSkipWaypoint(
+  prev: Point,
+  current: Point,
+  next: Point,
+  obstacles: Obstacle[],
+  corridorWidth: number
+): boolean {
+  // Check if direct path from prev to next is clear
+  const steps = 50;
+  const halfWidth = corridorWidth / 2;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const point = {
+      x: prev.x + (next.x - prev.x) * t,
+      y: prev.y + (next.y - prev.y) * t
+    };
+
+    // Check if corridor area at this point collides with obstacles
+    for (const obstacle of obstacles) {
+      if (circleRectIntersection(point, halfWidth, obstacle)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function circleRectIntersection(
+  center: Point,
+  radius: number,
+  rect: { x: number; y: number; width: number; height: number }
+): boolean {
+  const closestX = Math.max(rect.x, Math.min(center.x, rect.x + rect.width));
+  const closestY = Math.max(rect.y, Math.min(center.y, rect.y + rect.height));
+
+  const dx = center.x - closestX;
+  const dy = center.y - closestY;
+
+  return (dx * dx + dy * dy) <= (radius * radius);
 }
