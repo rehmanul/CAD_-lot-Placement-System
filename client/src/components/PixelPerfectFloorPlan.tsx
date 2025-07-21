@@ -10,6 +10,16 @@ interface PixelPerfectFloorPlanProps {
   analysis: Analysis;
 }
 
+const getStatusColor = (status: string) => {
+    if (!status || typeof status !== 'string') return 'text-gray-400';
+    switch (status.charAt(0)) {
+      case 'c': return 'text-green-400';
+      case 'p': return 'text-yellow-400';
+      case 'e': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
+
 export default function PixelPerfectFloorPlan({ 
   cadFile, 
   analysis 
@@ -201,6 +211,21 @@ export default function PixelPerfectFloorPlan({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Processing Status */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Activity className="h-5 w-5 text-blue-400" />
+          <h3 className="text-lg font-semibold">Analysis Status</h3>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-300">Current Status:</span>
+            <span className={`font-medium ${getStatusColor(analysis?.status || 'unknown')}`}>
+              {(analysis?.status || 'unknown').toUpperCase()}
+            </span>
+          </div>
+        </div>
+      </div>
         {/* Analysis Results Summary */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="text-center">
@@ -235,6 +260,20 @@ export default function PixelPerfectFloorPlan({
             Large: {analysis.result?.ilots?.filter(i => i.type === 'large').length || 0}
           </Badge>
         </div>
+         {/* Results Display */}
+      {analysis?.result && (
+        <div className="space-y-6">
+          {/* Metrics Overview */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-400 mb-2">Total Îlots</h4>
+              <p className="text-2xl font-bold text-white">{analysis.result.totalIlots || 0}</p>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-400 mb-2">Efficiency</h4>
+              <p className="text-2xl font-bold text-green-400">{analysis.result.efficiency || 0}%</p>
+            </div>
+          </div>
 
         {/* Canvas */}
         <div className="flex justify-center">
