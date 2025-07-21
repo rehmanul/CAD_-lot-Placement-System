@@ -49,36 +49,36 @@ export default function CADAnalysisApp() {
       id: 'upload',
       name: 'File Upload',
       description: 'CAD file validation and parsing',
-      status: uploadedFile ? 'complete' : 'pending',
+      status: (uploadedFile ? 'complete' : 'pending') as 'pending' | 'processing' | 'complete' | 'error',
       duration: '2-5s'
     },
     {
       id: 'analysis',
       name: 'Spatial Analysis',
       description: 'Floor plan geometry extraction',
-      status: uploadedFile && !isProcessing ? 'complete' : uploadedFile ? 'processing' : 'pending',
+      status: (uploadedFile && !isProcessing ? 'complete' : uploadedFile ? 'processing' : 'pending') as 'pending' | 'processing' | 'complete' | 'error',
       duration: '5-10s'
     },
     {
       id: 'optimization',
       name: 'Îlot Optimization',
       description: 'Genetic algorithm placement',
-      status: currentAnalysis?.status === 'complete' ? 'complete' : 
-              currentAnalysis?.status === 'processing' ? 'processing' : 'pending',
+      status: (currentAnalysis?.status === 'complete' ? 'complete' : 
+              currentAnalysis?.status === 'processing' ? 'processing' : 'pending') as 'pending' | 'processing' | 'complete' | 'error',
       duration: '15-30s'
     },
     {
       id: 'corridor',
       name: 'Corridor Generation',
       description: 'A* pathfinding network',
-      status: currentAnalysis?.status === 'complete' ? 'complete' : 'pending',
+      status: (currentAnalysis?.status === 'complete' ? 'complete' : 'pending') as 'pending' | 'processing' | 'complete' | 'error',
       duration: '10-15s'
     },
     {
       id: 'export',
       name: 'Export Ready',
       description: 'Results visualization and export',
-      status: currentAnalysis?.status === 'complete' ? 'complete' : 'pending',
+      status: (currentAnalysis?.status === 'complete' ? 'complete' : 'pending') as 'pending' | 'processing' | 'complete' | 'error',
       duration: '1-2s'
     }
   ];
@@ -93,10 +93,12 @@ export default function CADAnalysisApp() {
     setCurrentAnalysis(null);
   };
 
-  const handleFileUpload = (file: CADFile) => {
-    setUploadedFile(file);
-    setCurrentAnalysis(null);
-    setIsProcessing(false);
+  const handleFileUpload = (file: CADFile | null) => {
+    if (file) {
+      setUploadedFile(file);
+      setCurrentAnalysis(null);
+      setIsProcessing(false);
+    }
   };
 
   const handleConfigurationChange = (newIlotConfig: IlotConfig, newOptimizationConfig?: OptimizationConfig) => {
@@ -142,9 +144,8 @@ export default function CADAnalysisApp() {
                   processingPhases={processingPhases}
                 />
                 <ResultsVisualization 
-                  uploadedFile={uploadedFile} 
-                  analysis={currentAnalysis}
-                  isProcessing={isProcessing}
+                  cadFile={uploadedFile} 
+                  analysisResults={currentAnalysis}
                 />
                 <ExportSection analysis={currentAnalysis} />
               </div>
