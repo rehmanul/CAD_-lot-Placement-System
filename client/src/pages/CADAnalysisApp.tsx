@@ -10,6 +10,7 @@ import ResultsVisualization from "@/components/ResultsVisualization";
 import ExportSection from "@/components/ExportSection";
 import { AutoCADIntegration } from "@/components/AutoCADIntegration";
 import { BIMVisualization } from "@/components/BIMVisualization";
+import EnhancedCADProcessor from "@/components/EnhancedCADProcessor";
 import { CADFile, Analysis, IlotConfig, OptimizationConfig } from "@shared/schema";
 
 export default function CADAnalysisApp() {
@@ -158,6 +159,14 @@ export default function CADAnalysisApp() {
 
           {activeTab === "3D BIM" && (
             <BIMVisualization />
+          )}
+
+          {activeTab === "Pixel-Perfect Processing" && (
+            <EnhancedCADProcessor
+              cadFile={uploadedFile}
+              analysis={currentAnalysis}
+              onAnalysisComplete={handleAnalysisComplete}
+            />
           )}
 
           {activeTab === "Analysis" && (

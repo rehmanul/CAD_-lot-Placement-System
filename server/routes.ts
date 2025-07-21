@@ -6,6 +6,7 @@ import { z } from "zod";
 import { processCADFile } from "./services/cadProcessor";
 import { optimizeLayout } from "./services/layoutOptimizer";
 import { generateExport } from "./services/exportGenerator";
+import { PixelPerfectProcessor } from "./services/pixelPerfectProcessor";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -210,6 +211,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         error: "Retrieval failed",
         message: "Failed to retrieve analysis results"
+      });
+    }
+  });
+
+  // Pixel-Perfect Processing endpoint
+  app.post("/api/cad/pixel-perfect/:fileId", async (req, res) => {
+    try {
+      const { fileId } = req.params;
+      const validation = cadAnalysisSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          error: "Invalid configuration",
+          message: "Pixel-perfect processing parameters validation failed",
+          details: validation.error.issues
+        });
+      }
+
+      const cadFile = await storage.getCadFile(fileId);
+      if (!cadFile) {
+        return res.status(404).json({
+          error: "CAD file not found",
+          message: "The specified CAD file could not be found"
+        });
+      }
+
+      // Initialize pixel-perfect processor
+      const processor = new PixelPerfectProcessor(validation.data.ilotConfig.corridorWidth);
+      
+      // Process with pixel-perfect algorithms
+      const result = processor.processCADFilePixelPerfect(
+        cadFile,
+        validation.data.ilotConfig,
+        validation.data.ilotConfig.corridorWidth
+      );
+
+      // Create analysis record
+      const analysisId = await storage.createAnalysis({
+        fileId,
+        config: validation.data,
+        timestamp: new Date(),
+        status: 'complete',
+        result,
+        processingType: 'pixel-perfect'
+      });
+
+      res.json({
+        success: true,
+        analysisId,
+        result,
+        message: "Pixel-perfect processing completed successfully"
+      });
+
+    } catch (error) {
+      console.error('Pixel-perfect processing error:', error);
+      res.status(500).json({
+        error: "Processing failed",
+        message: error instanceof Error ? error.message : "Unknown processing error"
       });
     }
   });
