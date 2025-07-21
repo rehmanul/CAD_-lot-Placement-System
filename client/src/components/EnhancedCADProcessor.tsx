@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Zap, Play, RotateCcw, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { CADFile, Analysis } from "@shared/schema";
 import PixelPerfectFloorPlan from "./PixelPerfectFloorPlan";
-import { api } from "@/lib/api";
+import { cadAPI } from "@/lib/api";
 
 interface ProcessingStage {
   id: string;
@@ -106,7 +106,7 @@ export default function EnhancedCADProcessor({
       updateStageStatus('render', 'processing', 90);
 
       // Call the actual API
-      const result = await api.cad.startPixelPerfectAnalysis(cadFile.id, {
+      const result = await cadAPI.startPixelPerfectAnalysis(cadFile.id, {
         ilotConfig: {
           smallIlots: 30,
           mediumIlots: 50,
