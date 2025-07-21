@@ -27,144 +27,109 @@ export default function PixelPerfectFloorPlan({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current || !analysis.result) return;
+    if (!canvasRef.current || !analysis?.result?.ilots) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     // Set canvas size
     canvas.width = 800;
     canvas.height = 600;
 
-    // Clear canvas
-    ctx.fillStyle = '#1f2937'; // Dark background
+    // Draw background
+    ctx.fillStyle = '#1f2937';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw floor plan outline
-    ctx.strokeStyle = '#6b7280';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
-
-    // Draw walls from CAD file
-    if (analysis.result.floorPlan?.walls) {
-      ctx.strokeStyle = '#374151';
-      ctx.lineWidth = 4;
-
-      analysis.result.floorPlan.walls.forEach(wall => {
-        if (wall.geometry.coordinates && wall.geometry.coordinates.length >= 2) {
-          ctx.beginPath();
-          const [x1, y1] = wall.geometry.coordinates[0];
-          const [x2, y2] = wall.geometry.coordinates[1];
-
-          // Scale coordinates to fit canvas
-          const scaledX1 = (x1 / cadFile.dimensions.width) * (canvas.width - 100) + 50;
-          const scaledY1 = (y1 / cadFile.dimensions.height) * (canvas.height - 100) + 50;
-          const scaledX2 = (x2 / cadFile.dimensions.width) * (canvas.width - 100) + 50;
-          const scaledY2 = (y2 / cadFile.dimensions.height) * (canvas.height - 100) + 50;
-
-          ctx.moveTo(scaledX1, scaledY1);
-          ctx.lineTo(scaledX2, scaledY2);
-          ctx.stroke();
-        }
-      });
+    // Draw grid
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < canvas.width; i += 20) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let i = 0; i < canvas.height; i += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(canvas.width, i);
+      ctx.stroke();
     }
 
+    // Draw floor plan bounds
+    ctx.strokeStyle = '#6B7280';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, 50, 700, 500);
+
+    const scaleFactor = 6;
+    const offsetX = 60;
+    const offsetY = 60;
+
     // Draw îlots
-    if (analysis.result.ilots) {
-      analysis.result.ilots.forEach((ilot, index) => {
-        // Set color based on îlot type
-        let fillColor = '#3b82f6'; // Default blue
-        const ilotType = ilot.type || 'unknown';
-        if (ilotType === 'small') fillColor = '#10b981'; // Green
-        if (ilotType === 'medium') fillColor = '#f59e0b'; // Orange
-        if (ilotType === 'large') fillColor = '#ef4444'; // Red
+    analysis.result.ilots.forEach((ilot, index) => {
+      // Safe null checks
+      if (!ilot || typeof ilot.x !== 'number' || typeof ilot.y !== 'number') return;
 
-        ctx.fillStyle = fillColor + '80'; // Add transparency
-        ctx.strokeStyle = fillColor;
-        ctx.lineWidth = 2;
+      const scaledX = offsetX + (ilot.x * scaleFactor);
+      const scaledY = offsetY + (ilot.y * scaleFactor);
+      const scaledWidth = (ilot.width || 10) * scaleFactor;
+      const scaledHeight = (ilot.height || 10) * scaleFactor;
 
-        // Scale îlot position and size
-        const scaledX = (ilot.x / cadFile.dimensions.width) * (canvas.width - 100) + 50;
-        const scaledY = (ilot.y / cadFile.dimensions.height) * (canvas.width - 100) + 50;
-        const scaledWidth = (ilot.width / cadFile.dimensions.width) * (canvas.width - 100);
-        const scaledHeight = (ilot.height / cadFile.dimensions.height) * (canvas.width - 100);
+      // Get color based on type
+      const colors = {
+        small: '#10B981',   // Green
+        medium: '#F59E0B',  // Yellow
+        large: '#EF4444'    // Red
+      };
 
-        // Draw îlot rectangle
-        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
-        ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+      const ilotType = (ilot.type && typeof ilot.type === 'string') ? ilot.type : 'small';
+      ctx.fillStyle = colors[ilotType as keyof typeof colors] || colors.small;
+      ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
 
-        // Add îlot label
+      // Draw border
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+
+      // Draw label
+      if (scaledWidth > 20 && scaledHeight > 20) {
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
+        const displayType = ilotType.charAt(0).toUpperCase();
         ctx.fillText(
-          `${ilotType.charAt(0).toUpperCase()}${index + 1}`,
+          `${displayType}${index + 1}`,
           scaledX + scaledWidth / 2,
           scaledY + scaledHeight / 2 + 4
         );
-      });
-    }
+      }
+    });
 
-    // Draw corridors
-    if (analysis.result.corridors) {
-      ctx.strokeStyle = '#8b5cf6'; // Purple for corridors
-      ctx.lineWidth = 8; // Wide corridor
-      ctx.setLineDash([5, 5]); // Dashed line
-
+    // Draw corridors if available
+    if (analysis.result.corridors && Array.isArray(analysis.result.corridors)) {
+      ctx.strokeStyle = '#8B5CF6';
+      ctx.lineWidth = 3;
       analysis.result.corridors.forEach(corridor => {
-        if (corridor.points && corridor.points.length > 1) {
-          ctx.beginPath();
-
+        if (corridor.points && Array.isArray(corridor.points)) {
           corridor.points.forEach((point, index) => {
-            const [x, y] = point;
-            const scaledX = (x / cadFile.dimensions.width) * (canvas.width - 100) + 50;
-            const scaledY = (y / cadFile.dimensions.height) * (canvas.height - 100) + 50;
-
-            if (index === 0) {
-              ctx.moveTo(scaledX, scaledY);
-            } else {
-              ctx.lineTo(scaledX, scaledY);
+            if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+              if (index === 0) {
+                ctx.beginPath();
+                ctx.moveTo(offsetX + (point.x * scaleFactor), offsetY + (point.y * scaleFactor));
+              } else {
+                ctx.lineTo(offsetX + (point.x * scaleFactor), offsetY + (point.y * scaleFactor));
+              }
             }
           });
-
           ctx.stroke();
         }
       });
-
-      ctx.setLineDash([]); // Reset line dash
     }
-
-    // Add legend
-    const legendY = canvas.height - 120;
-    ctx.fillStyle = '#374151';
-    ctx.fillRect(10, legendY, 200, 100);
-    ctx.strokeStyle = '#6b7280';
-    ctx.strokeRect(10, legendY, 200, 100);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('Legend:', 20, legendY + 20);
-
-    // Legend items
-    const legendItems = [
-      { color: '#10b981', label: 'Small Îlots' },
-      { color: '#f59e0b', label: 'Medium Îlots' },
-      { color: '#ef4444', label: 'Large Îlots' },
-      { color: '#8b5cf6', label: 'Corridors' }
-    ];
-
-    legendItems.forEach((item, index) => {
-      const y = legendY + 35 + index * 15;
-      ctx.fillStyle = item.color;
-      ctx.fillRect(20, y - 8, 12, 10);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '12px Arial';
-      ctx.fillText(item.label, 40, y);
-    });
-
-  }, [cadFile, analysis]);
+  }, [analysis]);
 
   const downloadImage = () => {
     if (!canvasRef.current) return;

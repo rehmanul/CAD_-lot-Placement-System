@@ -78,16 +78,37 @@ export default function ResultsVisualization({ cadFile, analysisResults }: Resul
           {/* Element Types */}
           <div>
             <label className="text-sm text-gray-400 mb-2 block">Element Distribution</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {['wall', 'door', 'window', 'room', 'furniture', 'annotation'].map((type) => {
-                const count = cadFile.elements.filter(el => el.type === type).length;
-                return (
-                  <div key={type} className="text-center">
-                    <div className="text-lg font-bold text-white">{count}</div>
-                    <div className="text-xs text-gray-400 capitalize">{type}s</div>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">
+                  {cadFile.elements?.filter(e => e.type === 'wall').length || 0}
+                </div>
+                <div className="text-sm text-gray-400">Walls</div>
+              </div>
+              <div className="text-center">
+                {cadFile.elements?.filter(e => e.type === 'door').length || 0}
+              </div>
+              <div className="text-sm text-gray-400">Doors</div>
+            </div>
+            <div className="text-center">
+              {cadFile.elements?.filter(e => e.type === 'window').length || 0}
+              </div>
+              <div className="text-sm text-gray-400">Windows</div>
+            </div>
+            <div className="text-center">
+              {cadFile.elements?.filter(e => e.type === 'room').length || 0}
+              </div>
+              <div className="text-sm text-gray-400">Rooms</div>
+            </div>
+            <div className="text-center">
+              {cadFile.elements?.filter(e => e.type === 'furniture').length || 0}
+              </div>
+              <div className="text-sm text-gray-400">Furniture</div>
+            </div>
+            <div className="text-center">
+              {cadFile.elements?.filter(e => e.type === 'annotation').length || 0}
+              </div>
+              <div className="text-sm text-gray-400">Annotations</div>
             </div>
           </div>
         </CardContent>
@@ -105,23 +126,19 @@ export default function ResultsVisualization({ cadFile, analysisResults }: Resul
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-400">
-                  {analysisResults.totalIlots || 0}
-                </div>
-                <div className="text-sm text-gray-400">Total Îlots Placed</div>
+                {analysisResults?.result?.metrics?.totalIlots || analysisResults?.result?.ilots?.length || 0}
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400">
-                  {analysisResults.spaceUtilization || 0}%
-                </div>
-                <div className="text-sm text-gray-400">Space Utilization</div>
+              <div className="text-sm text-gray-400">Total Îlots Placed</div>
+            </div>
+            <div className="text-center">
+              {analysisResults?.result?.metrics?.spaceUtilization?.toFixed(1) || '0'}%
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400">
-                  {analysisResults.fitnessScore || 0}
-                </div>
-                <div className="text-sm text-gray-400">Fitness Score</div>
+              <div className="text-sm text-gray-400">Space Utilization</div>
+            </div>
+            <div className="text-center">
+              {analysisResults?.result?.fitness?.toFixed(2) || '0.00'}
               </div>
+              <div className="text-sm text-gray-400">Fitness Score</div>
             </div>
           </CardContent>
         </Card>

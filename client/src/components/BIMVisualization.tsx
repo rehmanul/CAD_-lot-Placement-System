@@ -30,7 +30,7 @@ export function BIMVisualization() {
   const [rotation, setRotation] = useState({ x: 0, y: 0, z: 0 });
   const [showGrid, setShowGrid] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
+
   const [bimModel, setBimModel] = useState<BIMModel>({
     id: 'model_001',
     name: 'Floor Plan Analysis',
@@ -61,19 +61,19 @@ export function BIMVisualization() {
     const canvas = ctx.canvas;
     const width = canvas.width;
     const height = canvas.height;
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
-    
+
     // Set background
     ctx.fillStyle = '#1F2937';
     ctx.fillRect(0, 0, width, height);
-    
+
     // Draw grid if enabled
     if (showGrid) {
       drawGrid(ctx, width, height);
     }
-    
+
     // Draw BIM elements based on view mode
     switch (viewMode) {
       case '3d':
@@ -91,16 +91,16 @@ export function BIMVisualization() {
   const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.strokeStyle = 'rgba(75, 85, 99, 0.3)';
     ctx.lineWidth = 1;
-    
+
     const gridSize = 20;
-    
+
     for (let x = 0; x <= width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
     }
-    
+
     for (let y = 0; y <= height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -113,50 +113,50 @@ export function BIMVisualization() {
     const centerX = width / 2;
     const centerY = height / 2;
     const scale = zoom / 100;
-    
+
     // Draw structural elements (if visible)
     const structuralLayer = bimModel.layers.find(l => l.type === 'structural');
     if (structuralLayer?.visible) {
       ctx.strokeStyle = structuralLayer.color;
       ctx.globalAlpha = structuralLayer.opacity;
       ctx.lineWidth = 3;
-      
+
       // Draw 3D structural frame
       drawIsometricBox(ctx, centerX - 100 * scale, centerY - 50 * scale, 200 * scale, 100 * scale, 30 * scale);
     }
-    
+
     // Draw architectural elements
     const archLayer = bimModel.layers.find(l => l.name === 'Architecture');
     if (archLayer?.visible) {
       ctx.strokeStyle = archLayer.color;
       ctx.globalAlpha = archLayer.opacity;
       ctx.lineWidth = 2;
-      
+
       // Draw walls in 3D
       drawIsometricWalls(ctx, centerX, centerY, scale);
     }
-    
+
     // Draw îlots
     const ilotLayer = bimModel.layers.find(l => l.name === 'Îlots');
     if (ilotLayer?.visible) {
       ctx.fillStyle = ilotLayer.color;
       ctx.globalAlpha = ilotLayer.opacity;
-      
+
       // Draw 3D îlots
       drawIsometricIlots(ctx, centerX, centerY, scale);
     }
-    
+
     // Draw corridors
     const corridorLayer = bimModel.layers.find(l => l.name === 'Corridors');
     if (corridorLayer?.visible) {
       ctx.strokeStyle = corridorLayer.color;
       ctx.globalAlpha = corridorLayer.opacity;
       ctx.lineWidth = 3;
-      
+
       // Draw corridor paths
       drawCorridorPaths(ctx, centerX, centerY, scale);
     }
-    
+
     ctx.globalAlpha = 1;
   };
 
@@ -164,15 +164,15 @@ export function BIMVisualization() {
     const centerX = width / 2;
     const centerY = height / 2;
     const scale = zoom / 100;
-    
+
     // Draw floor plan in 2D
     bimModel.layers.forEach(layer => {
       if (!layer.visible) return;
-      
+
       ctx.strokeStyle = layer.color;
       ctx.globalAlpha = layer.opacity;
       ctx.lineWidth = 2;
-      
+
       // Draw layer elements
       switch (layer.type) {
         case 'structural':
@@ -183,7 +183,7 @@ export function BIMVisualization() {
           break;
       }
     });
-    
+
     ctx.globalAlpha = 1;
   };
 
@@ -191,11 +191,11 @@ export function BIMVisualization() {
     const centerX = width / 2;
     const centerY = height / 2;
     const scale = zoom / 100;
-    
+
     // Draw cross-section view
     ctx.strokeStyle = '#3B82F6';
     ctx.lineWidth = 2;
-    
+
     // Draw section lines
     ctx.beginPath();
     ctx.moveTo(centerX - 150 * scale, centerY + 50 * scale);
@@ -204,13 +204,13 @@ export function BIMVisualization() {
     ctx.lineTo(centerX - 150 * scale, centerY - 100 * scale);
     ctx.closePath();
     ctx.stroke();
-    
+
     // Draw interior elements
     ctx.fillStyle = '#EF4444';
     ctx.globalAlpha = 0.7;
     ctx.fillRect(centerX - 20 * scale, centerY, 40 * scale, 40 * scale);
     ctx.fillRect(centerX + 60 * scale, centerY, 30 * scale, 30 * scale);
-    
+
     ctx.globalAlpha = 1;
   };
 
@@ -220,7 +220,7 @@ export function BIMVisualization() {
     ctx.beginPath();
     ctx.rect(x, y, w, h);
     ctx.stroke();
-    
+
     // Top face
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -229,7 +229,7 @@ export function BIMVisualization() {
     ctx.lineTo(x + w, y);
     ctx.closePath();
     ctx.stroke();
-    
+
     // Right face
     ctx.beginPath();
     ctx.moveTo(x + w, y);
@@ -258,14 +258,14 @@ export function BIMVisualization() {
       { x: 20, y: -20, w: 50, h: 35 },
       { x: -50, y: 20, w: 35, h: 25 }
     ];
-    
+
     ilots.forEach(ilot => {
       const x = centerX + ilot.x * scale;
       const y = centerY + ilot.y * scale;
       const w = ilot.w * scale;
       const h = ilot.h * scale;
       const depth = 15 * scale;
-      
+
       drawIsometricBox(ctx, x, y, w, h, depth);
     });
   };
@@ -288,7 +288,7 @@ export function BIMVisualization() {
       { x: -100, y: 50 },
       { x: 100, y: 50 }
     ];
-    
+
     columns.forEach(col => {
       ctx.fillRect(centerX + col.x * scale - 5, centerY + col.y * scale - 5, 10, 10);
     });
@@ -336,10 +336,10 @@ export function BIMVisualization() {
             <div>
               <CardTitle className="text-white flex items-center gap-2">
                 <Box className="w-5 h-5" />
-                3D BIM Visualization
+                3D BIM Visualization (Demo)
               </CardTitle>
               <CardDescription className="text-white/70">
-                Advanced Building Information Modeling with real-time 3D visualization
+                Demo 3D viewer. Real BIM integration requires Three.js, IFC.js or similar 3D libraries and actual BIM file parsing.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -365,7 +365,7 @@ export function BIMVisualization() {
                   <TabsTrigger value="section" className="data-[state=active]:bg-white/20">Section</TabsTrigger>
                 </TabsList>
               </Tabs>
-              
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -402,7 +402,7 @@ export function BIMVisualization() {
                 height={isFullscreen ? 600 : 500}
                 className="w-full h-full object-contain"
               />
-              
+
               {/* Zoom Controls */}
               <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-black/50 rounded-lg px-3 py-2">
                 <Button
@@ -472,18 +472,18 @@ export function BIMVisualization() {
                   >
                     {layer.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </Button>
-                  
+
                   <div
                     className="w-4 h-4 rounded"
                     style={{ backgroundColor: layer.color }}
                   />
-                  
+
                   <div>
                     <div className="text-white font-medium">{layer.name}</div>
                     <div className="text-white/60 text-sm capitalize">{layer.type}</div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   <div className="text-white/70 text-sm min-w-[60px]">
                     {Math.round(layer.opacity * 100)}%

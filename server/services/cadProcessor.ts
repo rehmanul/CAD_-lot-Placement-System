@@ -231,9 +231,17 @@ function convertDXFEntityToCADElement(entity: any): CADElement | null {
         const x2 = parseFloat(entity.x2) || 0;
         const y2 = parseFloat(entity.y2) || 0;
         
+        // Determine type based on layer name or line characteristics
+        let elementType = 'wall';
+        const layerLower = layer.toLowerCase();
+        if (layerLower.includes('door')) elementType = 'door';
+        else if (layerLower.includes('window')) elementType = 'window';
+        else if (layerLower.includes('furniture')) elementType = 'furniture';
+        else if (layerLower.includes('text') || layerLower.includes('dim')) elementType = 'annotation';
+        
         return {
           id,
-          type: 'wall',
+          type: elementType as any,
           geometry: {
             type: 'line',
             coordinates: [[x1, y1], [x2, y2]],

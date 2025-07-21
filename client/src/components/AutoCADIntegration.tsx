@@ -57,10 +57,10 @@ export function AutoCADIntegration() {
             <div>
               <CardTitle className="text-white flex items-center gap-2">
                 <Link2 className="w-5 h-5" />
-                AutoCAD Integration
+                AutoCAD Integration (Demo)
               </CardTitle>
               <CardDescription className="text-white/70">
-                Direct connection to AutoCAD for seamless file import/export
+                Demo interface for AutoCAD integration. Actual AutoCAD API integration requires enterprise license and COM/ActiveX setup.
               </CardDescription>
             </div>
             <Badge 
