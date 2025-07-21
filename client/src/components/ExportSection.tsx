@@ -1,208 +1,186 @@
-import { Download, Image, FileText, Layers, Database, AlertCircle, Check } from "lucide-react";
 import { useState } from "react";
+import { Download, FileImage, FileText, Code, Database, Loader } from "lucide-react";
 import { Analysis } from "@shared/schema";
 import { cadAPI } from "@/lib/api";
 
 interface ExportSectionProps {
-  analysis: Analysis | null;
-}
-
-interface ExportState {
-  isExporting: boolean;
-  progress: number;
-  status: string;
-  error: string | null;
+  analysis?: Analysis | null;
 }
 
 export default function ExportSection({ analysis }: ExportSectionProps) {
-  const [exportState, setExportState] = useState<ExportState>({
-    isExporting: false,
-    progress: 0,
-    status: '',
-    error: null
-  });
+  const [exportProgress, setExportProgress] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string>("");
 
   const handleExport = async (type: 'image' | 'pdf' | 'dxf' | 'json') => {
     if (!analysis || analysis.status !== 'complete') {
-      setExportState(prev => ({ ...prev, error: 'Analysis must be completed before export' }));
+      setExportStatus("Analysis must be completed before export");
       return;
     }
 
-    setExportState({
-      isExporting: true,
-      progress: 0,
-      status: `Generating ${type.toUpperCase()}...`,
-      error: null
-    });
+    setIsExporting(true);
+    setExportProgress(0);
+    setExportStatus("Preparing export...");
 
     try {
-      // Simulate progress
+      // Simulate progress updates
       const progressInterval = setInterval(() => {
-        setExportState(prev => ({
-          ...prev,
-          progress: Math.min(prev.progress + 15, 90)
-        }));
+        setExportProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const result = await cadAPI.exportResults(analysis.id, {
+      const exportConfig = {
         type,
-        resolution: '4k',
+        format: type === 'image' ? 'svg' : undefined,
+        resolution: type === 'image' ? '4k' as const : undefined,
         includeMetrics: true
+      };
+
+      const response = await fetch(`/api/cad/export/${analysis.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(exportConfig)
       });
 
       clearInterval(progressInterval);
-      
-      // Handle file download
+      setExportProgress(100);
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Handle file download for binary formats
       if (type === 'image' || type === 'pdf') {
-        const blob = result as Blob;
+        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cad_analysis_${analysis.id}.${type === 'image' ? 'png' : 'pdf'}`;
+        a.download = `cad_analysis_${analysis.id}.${type === 'image' ? 'svg' : 'pdf'}`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        // For JSON/DXF, create downloadable file
-        const dataStr = JSON.stringify(result, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = window.URL.createObjectURL(dataBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `cad_analysis_${analysis.id}.${type}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        // Handle JSON/DXF text responses
+        const result = await response.json();
+        if (result.data) {
+          const blob = new Blob([typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)], 
+                               { type: 'text/plain' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = result.filename || `cad_analysis_${analysis.id}.${type}`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
       }
 
-      setExportState({
-        isExporting: false,
-        progress: 100,
-        status: 'Export completed successfully!',
-        error: null
-      });
+      setExportStatus(`${type.toUpperCase()} exported successfully`);
 
-      // Reset after success
+    } catch (error) {
+      console.error('Export error:', error);
+      setExportStatus(error instanceof Error ? error.message : "Export failed");
+    } finally {
+      setIsExporting(false);
       setTimeout(() => {
-        setExportState({
-          isExporting: false,
-          progress: 0,
-          status: '',
-          error: null
-        });
+        setExportProgress(0);
+        setExportStatus("");
       }, 3000);
-
-    } catch (error: any) {
-      setExportState({
-        isExporting: false,
-        progress: 0,
-        status: '',
-        error: error.message || 'Export failed'
-      });
     }
   };
 
+  const exportOptions = [
+    {
+      id: 'image',
+      label: 'High-Res Image',
+      description: 'SVG vector graphics with scalable quality',
+      icon: FileImage,
+      color: 'text-blue-400'
+    },
+    {
+      id: 'pdf',
+      label: 'PDF Report',
+      description: 'Complete analysis report with metrics',
+      icon: FileText,
+      color: 'text-red-400'
+    },
+    {
+      id: 'dxf',
+      label: 'CAD Drawing',
+      description: 'DXF format for AutoCAD integration',
+      icon: Code,
+      color: 'text-green-400'
+    },
+    {
+      id: 'json',
+      label: 'Raw Data',
+      description: 'Complete dataset in JSON format',
+      icon: Database,
+      color: 'text-purple-400'
+    }
+  ];
+
   return (
-    <div className="metric-card rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-        <Download className="w-5 h-5 mr-2 text-blue-400" />
-        Professional Export
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div 
-          className="bg-gray-800/50 rounded-lg p-4 text-center hover:bg-gray-700/50 transition-colors cursor-pointer"
-          onClick={() => handleExport('image')}
-        >
-          <Image className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-          <h4 className="font-medium text-white mb-1">High-Res Images</h4>
-          <p className="text-xs text-gray-400 mb-3">PNG, SVG formats • Up to 4K resolution</p>
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded text-sm font-medium transition-colors">
-            Export Images
-          </button>
-        </div>
-
-        <div 
-          className="bg-gray-800/50 rounded-lg p-4 text-center hover:bg-gray-700/50 transition-colors cursor-pointer"
-          onClick={() => handleExport('pdf')}
-        >
-          <FileText className="w-8 h-8 text-red-400 mx-auto mb-2" />
-          <h4 className="font-medium text-white mb-1">PDF Reports</h4>
-          <p className="text-xs text-gray-400 mb-3">Analysis data • Measurements • Statistics</p>
-          <button className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded text-sm font-medium transition-colors">
-            Generate PDF
-          </button>
-        </div>
-
-        <div 
-          className="bg-gray-800/50 rounded-lg p-4 text-center hover:bg-gray-700/50 transition-colors cursor-pointer"
-          onClick={() => handleExport('dxf')}
-        >
-          <Layers className="w-8 h-8 text-green-400 mx-auto mb-2" />
-          <h4 className="font-medium text-white mb-1">DXF Export</h4>
-          <p className="text-xs text-gray-400 mb-3">AutoCAD compatible • Layer preserved</p>
-          <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded text-sm font-medium transition-colors">
-            Export DXF
-          </button>
-        </div>
-
-        <div 
-          className="bg-gray-800/50 rounded-lg p-4 text-center hover:bg-gray-700/50 transition-colors cursor-pointer"
-          onClick={() => handleExport('json')}
-        >
-          <Database className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-          <h4 className="font-medium text-white mb-1">Data Export</h4>
-          <p className="text-xs text-gray-400 mb-3">JSON format • Complete geometry data</p>
-          <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-3 rounded text-sm font-medium transition-colors">
-            Export Data
-          </button>
-        </div>
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <Download className="w-6 h-6 text-blue-400" />
+        <h3 className="text-xl font-bold text-white">Export Results</h3>
       </div>
-      
-      {!analysis && (
-        <div className="mt-6 text-center py-8">
-          <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <p className="text-gray-400 mb-2">No Analysis Available</p>
-          <p className="text-sm text-gray-500">Complete an analysis to enable export options</p>
-        </div>
-      )}
 
-      {exportState.error && (
-        <div className="mt-6 p-4 bg-red-500/10 rounded-lg border border-red-500/20">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-sm font-medium text-red-400">Export Error</span>
-          </div>
-          <p className="text-sm text-gray-400 mt-2">{exportState.error}</p>
+      {!analysis || analysis.status !== 'complete' ? (
+        <div className="text-center py-8">
+          <div className="text-gray-400 mb-2">Complete analysis to enable exports</div>
+          <div className="text-sm text-gray-500">Upload a CAD file and run optimization first</div>
         </div>
-      )}
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {exportOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => handleExport(option.id as any)}
+                disabled={isExporting}
+                className="flex items-center gap-4 p-4 bg-gray-750 hover:bg-gray-700 border border-gray-600 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                <option.icon className={`w-8 h-8 ${option.color} group-hover:scale-110 transition-transform`} />
+                <div className="flex-1 text-left">
+                  <div className="font-semibold text-white">{option.label}</div>
+                  <div className="text-sm text-gray-400">{option.description}</div>
+                </div>
+                {isExporting ? (
+                  <Loader className="w-5 h-5 text-blue-400 animate-spin" />
+                ) : (
+                  <Download className="w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors" />
+                )}
+              </button>
+            ))}
+          </div>
 
-      {exportState.isExporting && (
-        <div className="mt-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-400">
-              {exportState.status}
-            </span>
-            <span className="text-sm text-blue-400">{exportState.progress}%</span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div 
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${exportState.progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+          {isExporting && (
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Export Progress</span>
+                <span className="text-blue-400">{exportProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${exportProgress}%` }}
+                />
+              </div>
+              {exportStatus && (
+                <div className="text-center text-sm text-gray-300">{exportStatus}</div>
+              )}
+            </div>
+          )}
 
-      {exportState.status && !exportState.isExporting && !exportState.error && (
-        <div className="mt-6 p-4 bg-green-500/10 rounded-lg border border-green-500/20">
-          <div className="flex items-center space-x-2">
-            <Check className="w-5 h-5 text-green-400" />
-            <span className="text-sm font-medium text-green-400">{exportState.status}</span>
-          </div>
-        </div>
+          {exportStatus && !isExporting && (
+            <div className="mt-4 text-center text-sm text-green-400">{exportStatus}</div>
+          )}
+        </>
       )}
     </div>
   );

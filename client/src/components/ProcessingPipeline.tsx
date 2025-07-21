@@ -1,227 +1,304 @@
+
 import { useEffect, useState } from "react";
-import { Cpu, Check, Loader, Clock, AlertCircle } from "lucide-react";
-import { Analysis } from "@shared/schema";
+import { Cpu, Check, Loader, Clock, AlertCircle, Play, Pause } from "lucide-react";
+import { Analysis, CADFile, IlotConfig, OptimizationConfig } from "@shared/schema";
 import { cadAPI } from "@/lib/api";
 
-interface ProcessingPipelineProps {
-  uploadedFile?: any;
-  onAnalysisComplete?: (analysis: Analysis) => void;
-}
-
 interface ProcessingPhase {
-  id: number;
+  id: string;
   name: string;
+  description: string;
   status: 'pending' | 'processing' | 'complete' | 'error';
-  progress: number;
-  description?: string;
+  duration: string;
+  progress?: number;
+  error?: string;
 }
 
-export default function ProcessingPipeline({ uploadedFile, onAnalysisComplete }: ProcessingPipelineProps) {
-  const [phases, setPhases] = useState<ProcessingPhase[]>([
-    { id: 1, name: "CAD Processing & Floor Plan Extraction", status: "pending", progress: 0, description: "File parsing, layer detection, wall boundary extraction" },
-    { id: 2, name: "Geometric Analysis", status: "pending", progress: 0, description: "Color matching, line weights, geometric precision" },
-    { id: 3, name: "Intelligent Îlot Placement", status: "pending", progress: 0, description: "Genetic algorithm optimization, space utilization analysis" },
-    { id: 4, name: "Corridor Network Generation", status: "pending", progress: 0, description: "A* pathfinding, minimum spanning tree algorithms" }
-  ]);
-  
+interface ProcessingPipelineProps {
+  uploadedFile?: CADFile | null;
+  onAnalysisComplete?: (analysis: Analysis) => void;
+  onAnalysisStart?: () => void;
+  ilotConfig: IlotConfig;
+  optimizationConfig: OptimizationConfig;
+  processingPhases: ProcessingPhase[];
+}
+
+export default function ProcessingPipeline({ 
+  uploadedFile, 
+  onAnalysisComplete, 
+  onAnalysisStart,
+  ilotConfig,
+  optimizationConfig,
+  processingPhases 
+}: ProcessingPipelineProps) {
   const [currentAnalysis, setCurrentAnalysis] = useState<Analysis | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
+  const [phases, setPhases] = useState<ProcessingPhase[]>(processingPhases);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(0);
+
+  const canStartAnalysis = uploadedFile && !isProcessing;
+
+  const updatePhaseStatus = (phaseId: string, status: ProcessingPhase['status'], progress?: number, error?: string) => {
+    setPhases(prevPhases => 
+      prevPhases.map(phase => 
+        phase.id === phaseId 
+          ? { ...phase, status, progress, error }
+          : phase
+      )
+    );
+  };
 
   const startAnalysis = async () => {
     if (!uploadedFile) return;
+
+    setIsProcessing(true);
+    onAnalysisStart?.();
+    setCurrentPhaseIndex(0);
     
-    setIsRunning(true);
-    setPhases(prev => prev.map((phase, index) => ({
-      ...phase,
-      status: index === 0 ? 'processing' : 'pending',
-      progress: index === 0 ? 0 : 0
-    })));
+    // Reset all phases to pending
+    setPhases(prevPhases => 
+      prevPhases.map(phase => ({ ...phase, status: 'pending' as const, progress: 0, error: undefined }))
+    );
 
     try {
-      // Start the analysis
+      // Phase 1: File Upload (already complete)
+      updatePhaseStatus('upload', 'complete', 100);
+      setCurrentPhaseIndex(1);
+
+      // Phase 2: Spatial Analysis
+      updatePhaseStatus('analysis', 'processing', 0);
+      
+      // Simulate spatial analysis progress
+      for (let progress = 0; progress <= 100; progress += 10) {
+        updatePhaseStatus('analysis', 'processing', progress);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      updatePhaseStatus('analysis', 'complete', 100);
+      setCurrentPhaseIndex(2);
+
+      // Phase 3: Start the actual optimization
+      updatePhaseStatus('optimization', 'processing', 0);
+      
       const { analysisId } = await cadAPI.startAnalysis(uploadedFile.id, {
-        ilotConfig: {
-          smallIlots: 30,
-          mediumIlots: 50,
-          largeIlots: 20,
-          corridorWidth: 1.2,
-          adaCompliance: true,
-          minClearance: 1.2,
-          maxDensity: 80
-        },
-        optimizationConfig: {
-          populationSize: 50,
-          generations: 100,
-          mutationRate: 0.1,
-          crossoverRate: 0.8
-        }
+        ilotConfig,
+        optimizationConfig
       });
 
-      // Poll for results
-      let currentPhaseIndex = 0;
+      // Phase 4: Poll for optimization results
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max
       const pollInterval = setInterval(async () => {
         try {
           const analysis = await cadAPI.getAnalysis(analysisId);
           setCurrentAnalysis(analysis);
 
+          // Calculate progress based on generation if available
+          const progress = analysis.result ? 
+            Math.min((analysis.result.generation / optimizationConfig.generations) * 100, 100) : 
+            Math.min((attempts / maxAttempts) * 100, 90);
+
+          updatePhaseStatus('optimization', 'processing', progress);
+
           if (analysis.status === 'complete') {
             clearInterval(pollInterval);
-            setPhases(prev => prev.map(phase => ({
-              ...phase,
-              status: 'complete',
-              progress: 100
-            })));
-            setIsRunning(false);
+            updatePhaseStatus('optimization', 'complete', 100);
+            setCurrentPhaseIndex(3);
+
+            // Phase 5: Corridor Generation
+            updatePhaseStatus('corridor', 'processing', 0);
+            
+            // Simulate corridor generation
+            for (let progress = 0; progress <= 100; progress += 20) {
+              updatePhaseStatus('corridor', 'processing', progress);
+              await new Promise(resolve => setTimeout(resolve, 150));
+            }
+            updatePhaseStatus('corridor', 'complete', 100);
+            setCurrentPhaseIndex(4);
+
+            // Phase 6: Export Ready
+            updatePhaseStatus('export', 'complete', 100);
+            
+            setIsProcessing(false);
             onAnalysisComplete?.(analysis);
+            
           } else if (analysis.status === 'error') {
             clearInterval(pollInterval);
-            setPhases(prev => prev.map((phase, index) => ({
-              ...phase,
-              status: index <= currentPhaseIndex ? 'error' : 'pending'
-            })));
-            setIsRunning(false);
-          } else if (analysis.status === 'processing') {
-            // Update phase progress
-            const progress = analysis.progress || 0;
-            const newPhaseIndex = Math.floor(progress / 25);
-            
-            setPhases(prev => prev.map((phase, index) => {
-              if (index < newPhaseIndex) {
-                return { ...phase, status: 'complete', progress: 100 };
-              } else if (index === newPhaseIndex) {
-                return { ...phase, status: 'processing', progress: (progress % 25) * 4 };
-              } else {
-                return { ...phase, status: 'pending', progress: 0 };
-              }
-            }));
-            
-            currentPhaseIndex = newPhaseIndex;
+            updatePhaseStatus('optimization', 'error', 0, analysis.error || 'Optimization failed');
+            setIsProcessing(false);
+          }
+
+          attempts++;
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            updatePhaseStatus('optimization', 'error', 0, 'Analysis timeout');
+            setIsProcessing(false);
           }
         } catch (error) {
-          console.error('Error polling analysis:', error);
+          console.error('Analysis polling error:', error);
           clearInterval(pollInterval);
-          setIsRunning(false);
+          updatePhaseStatus('optimization', 'error', 0, 'Failed to get analysis results');
+          setIsProcessing(false);
         }
       }, 1000);
 
-    } catch (error: any) {
-      console.error('Error starting analysis:', error);
-      setPhases(prev => prev.map(phase => ({
-        ...phase,
-        status: 'error'
-      })));
-      setIsRunning(false);
+    } catch (error) {
+      console.error('Analysis start error:', error);
+      updatePhaseStatus('optimization', 'error', 0, error instanceof Error ? error.message : 'Analysis failed to start');
+      setIsProcessing(false);
     }
   };
 
+  // Calculate estimated time remaining
   useEffect(() => {
-    if (uploadedFile && !isRunning) {
-      // Auto-start analysis when file is uploaded
-      startAnalysis();
+    if (isProcessing) {
+      const remainingPhases = phases.slice(currentPhaseIndex);
+      const totalEstimatedSeconds = remainingPhases.reduce((acc, phase) => {
+        const [min, max] = phase.duration.replace('s', '').split('-').map(Number);
+        return acc + (max || min);
+      }, 0);
+      setEstimatedTimeRemaining(totalEstimatedSeconds);
     }
-  }, [uploadedFile]);
+  }, [isProcessing, currentPhaseIndex, phases]);
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: ProcessingPhase['status']) => {
     switch (status) {
-      case "complete":
-        return <Check className="w-4 h-4 text-white" />;
-      case "processing":
-        return <Loader className="w-4 h-4 text-white animate-spin" />;
-      case "error":
-        return <AlertCircle className="w-4 h-4 text-white" />;
+      case 'complete':
+        return <Check className="w-5 h-5 text-green-400" />;
+      case 'processing':
+        return <Loader className="w-5 h-5 text-blue-400 animate-spin" />;
+      case 'error':
+        return <AlertCircle className="w-5 h-5 text-red-400" />;
       default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "complete":
-        return "bg-green-500";
-      case "processing":
-        return "bg-blue-500";
-      case "error":
-        return "bg-red-500";
-      default:
-        return "bg-gray-600";
+        return <Clock className="w-5 h-5 text-gray-500" />;
     }
   };
 
-  const getStatusTextColor = (status: string) => {
+  const getStatusColor = (status: ProcessingPhase['status']) => {
     switch (status) {
-      case "complete":
-        return "text-green-400";
-      case "processing":
-        return "text-blue-400";
-      case "error":
-        return "text-red-400";
+      case 'complete':
+        return 'border-green-400 bg-green-400/10';
+      case 'processing':
+        return 'border-blue-400 bg-blue-400/10';
+      case 'error':
+        return 'border-red-400 bg-red-400/10';
       default:
-        return "text-gray-400";
+        return 'border-gray-600 bg-gray-700/30';
     }
   };
 
   return (
-    <div className="metric-card rounded-xl p-6">
-      <h3 className="text-lg font-semibold text-white mb-6 flex items-center">
-        <Cpu className="w-5 h-5 mr-2 text-blue-400" />
-        Processing Pipeline
-      </h3>
-      
-      <div className="space-y-4">
-        {phases.map((phase, index) => (
-          <div key={phase.id} className="bg-gray-800/50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-3">
-                <div className={`w-8 h-8 ${getStatusColor(phase.status)} rounded-full flex items-center justify-center`}>
-                  {getStatusIcon(phase.status)}
-                </div>
-                <div>
-                  <h4 className="font-medium text-white">Phase {index + 1}: {phase.name}</h4>
-                  <p className="text-sm text-gray-400">{phase.description}</p>
-                </div>
-              </div>
-              <span className={`text-sm font-medium ${getStatusTextColor(phase.status)} capitalize`}>
-                {phase.status}
-              </span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div
-                className={`${getStatusColor(phase.status)} h-2 rounded-full transition-all duration-500`}
-                style={{ width: `${phase.progress}%` }}
-              />
-            </div>
-            {phase.status === "processing" && (
-              <div className="mt-2 text-xs text-gray-400">
-                Generation 47/75 • Fitness: 0.847 • Best Solution: 89.3% space utilization
-              </div>
-            )}
-          </div>
-        ))}
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Cpu className="w-6 h-6 text-blue-400" />
+          <h3 className="text-xl font-bold text-white">Processing Pipeline</h3>
+        </div>
         
-        {!uploadedFile && (
-          <div className="text-center py-8">
-            <Clock className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-            <p className="text-gray-400 mb-2">Ready for Analysis</p>
-            <p className="text-sm text-gray-500">Upload a CAD file to begin processing</p>
-          </div>
-        )}
-
-        {isRunning && currentAnalysis && (
-          <div className="mt-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-400">Analysis Progress</span>
-              <span className="text-sm text-blue-400">{currentAnalysis.progress || 0}%</span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${currentAnalysis.progress || 0}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-400 mt-2">Analysis ID: {currentAnalysis.id}</p>
-          </div>
+        {canStartAnalysis && (
+          <button
+            onClick={startAnalysis}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <Play className="w-4 h-4" />
+            Start Analysis
+          </button>
         )}
       </div>
+
+      {!uploadedFile ? (
+        <div className="text-center py-8">
+          <div className="text-gray-400 mb-2">Upload a CAD file to begin processing</div>
+          <div className="text-sm text-gray-500">Supported formats: DXF, DWG, PDF, PNG, JPG</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Processing Phases */}
+          {phases.map((phase, index) => (
+            <div
+              key={phase.id}
+              className={`p-4 rounded-lg border-2 transition-all duration-300 ${getStatusColor(phase.status)}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(phase.status)}
+                  <div>
+                    <div className="font-semibold text-white">{phase.name}</div>
+                    <div className="text-sm text-gray-400">{phase.description}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-400">Est. {phase.duration}</div>
+                  {phase.status === 'processing' && phase.progress !== undefined && (
+                    <div className="text-sm text-blue-400">{Math.round(phase.progress)}%</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              {phase.status === 'processing' && phase.progress !== undefined && (
+                <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${phase.progress}%` }}
+                  />
+                </div>
+              )}
+
+              {/* Error Message */}
+              {phase.status === 'error' && phase.error && (
+                <div className="mt-3 p-3 bg-red-900/20 border border-red-800 rounded-lg">
+                  <div className="text-red-400 text-sm">{phase.error}</div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Processing Summary */}
+          {isProcessing && (
+            <div className="mt-6 p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
+              <div className="flex items-center justify-between text-blue-400">
+                <span className="font-medium">Processing in progress...</span>
+                {estimatedTimeRemaining > 0 && (
+                  <span className="text-sm">~{estimatedTimeRemaining}s remaining</span>
+                )}
+              </div>
+              <div className="text-sm text-blue-300 mt-1">
+                Phase {currentPhaseIndex + 1} of {phases.length}: {phases[currentPhaseIndex]?.name}
+              </div>
+            </div>
+          )}
+
+          {/* Analysis Results Summary */}
+          {currentAnalysis && currentAnalysis.status === 'complete' && (
+            <div className="mt-6 p-4 bg-green-900/20 border border-green-800 rounded-lg">
+              <div className="text-green-400 font-medium mb-2">Analysis Complete!</div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-400">Total Îlots:</span>
+                  <span className="text-white ml-2">{currentAnalysis.result?.metrics.totalIlots}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Space Utilization:</span>
+                  <span className="text-white ml-2">
+                    {((currentAnalysis.result?.metrics.spaceUtilization || 0) * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Fitness Score:</span>
+                  <span className="text-white ml-2">
+                    {((currentAnalysis.result?.fitness || 0) * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Generation:</span>
+                  <span className="text-white ml-2">{currentAnalysis.result?.generation}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
