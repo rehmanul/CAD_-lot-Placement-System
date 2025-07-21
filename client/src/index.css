@@ -138,9 +138,17 @@
   }
 
   .corridor-line {
-    stroke: hsl(330, 81%, 60%);
+    stroke: #EC4899;
     stroke-width: 2;
     stroke-dasharray: 4,2;
+    fill: none;
+  }
+
+  .corridor-fill {
+    fill: rgba(236, 72, 153, 0.2);
+    stroke: #EC4899;
+    stroke-width: 1;
+    stroke-dasharray: 2,1;
   }
 
   h1,

@@ -297,9 +297,250 @@ export class CorridorNetworkGenerator {
   public generateCorridors(ilots: Ilot[]): Corridor[] {
     if (ilots.length < 2) return [];
 
-    // Use minimum spanning tree to connect all îlots efficiently
-    const mst = this.calculateMinimumSpanningTree(ilots);
     this.corridors = [];
+
+    // 1. Detect rows of islands facing each other
+    const facingRows = this.detectFacingRows(ilots);
+    
+    // 2. Generate corridors between facing rows
+    for (const rowPair of facingRows) {
+      const corridor = this.createCorridorBetweenRows(rowPair.row1, rowPair.row2);
+      if (corridor) {
+        this.corridors.push(corridor);
+      }
+    }
+
+    // 3. Connect remaining isolated îlots using optimized pathfinding
+    const connectedIlots = new Set<string>();
+    for (const corridor of this.corridors) {
+      corridor.connectedIlots.forEach(id => connectedIlots.add(id));
+    }
+
+    const unconnectedIlots = ilots.filter(ilot => !connectedIlots.has(ilot.id));
+    if (unconnectedIlots.length > 0) {
+      const connectionCorridors = this.connectRemainingIlots(unconnectedIlots, ilots);
+      this.corridors.push(...connectionCorridors);
+    }
+
+    return this.corridors;
+  }
+
+  private detectFacingRows(ilots: Ilot[]): Array<{ row1: Ilot[]; row2: Ilot[]; axis: 'horizontal' | 'vertical' }> {
+    const facingRows: Array<{ row1: Ilot[]; row2: Ilot[]; axis: 'horizontal' | 'vertical' }> = [];
+    
+    // Group îlots by rows (horizontal and vertical alignment)
+    const horizontalRows = this.groupIlotsByHorizontalAlignment(ilots);
+    const verticalRows = this.groupIlotsByVerticalAlignment(ilots);
+
+    // Check for horizontal facing rows (rows aligned vertically, facing horizontally)
+    for (let i = 0; i < horizontalRows.length; i++) {
+      for (let j = i + 1; j < horizontalRows.length; j++) {
+        const row1 = horizontalRows[i];
+        const row2 = horizontalRows[j];
+        
+        if (this.areRowsFacing(row1, row2, 'horizontal')) {
+          facingRows.push({ row1, row2, axis: 'horizontal' });
+        }
+      }
+    }
+
+    // Check for vertical facing rows (rows aligned horizontally, facing vertically)
+    for (let i = 0; i < verticalRows.length; i++) {
+      for (let j = i + 1; j < verticalRows.length; j++) {
+        const row1 = verticalRows[i];
+        const row2 = verticalRows[j];
+        
+        if (this.areRowsFacing(row1, row2, 'vertical')) {
+          facingRows.push({ row1, row2, axis: 'vertical' });
+        }
+      }
+    }
+
+    return facingRows;
+  }
+
+  private groupIlotsByHorizontalAlignment(ilots: Ilot[]): Ilot[][] {
+    const tolerance = 0.5; // 50cm tolerance for alignment
+    const rows: Ilot[][] = [];
+
+    for (const ilot of ilots) {
+      const centerY = ilot.position.y + ilot.height / 2;
+      
+      // Find existing row with similar Y coordinate
+      let foundRow = false;
+      for (const row of rows) {
+        const rowCenterY = row[0].position.y + row[0].height / 2;
+        if (Math.abs(centerY - rowCenterY) <= tolerance) {
+          row.push(ilot);
+          foundRow = true;
+          break;
+        }
+      }
+      
+      if (!foundRow) {
+        rows.push([ilot]);
+      }
+    }
+
+    // Filter out single-îlot rows and sort by X position
+    return rows
+      .filter(row => row.length >= 2)
+      .map(row => row.sort((a, b) => a.position.x - b.position.x));
+  }
+
+  private groupIlotsByVerticalAlignment(ilots: Ilot[]): Ilot[][] {
+    const tolerance = 0.5; // 50cm tolerance for alignment
+    const rows: Ilot[][] = [];
+
+    for (const ilot of ilots) {
+      const centerX = ilot.position.x + ilot.width / 2;
+      
+      // Find existing column with similar X coordinate
+      let foundRow = false;
+      for (const row of rows) {
+        const rowCenterX = row[0].position.x + row[0].width / 2;
+        if (Math.abs(centerX - rowCenterX) <= tolerance) {
+          row.push(ilot);
+          foundRow = true;
+          break;
+        }
+      }
+      
+      if (!foundRow) {
+        rows.push([ilot]);
+      }
+    }
+
+    // Filter out single-îlot rows and sort by Y position
+    return rows
+      .filter(row => row.length >= 2)
+      .map(row => row.sort((a, b) => a.position.y - b.position.y));
+  }
+
+  private areRowsFacing(row1: Ilot[], row2: Ilot[], axis: 'horizontal' | 'vertical'): boolean {
+    const minGap = this.corridorWidth + 0.2; // Minimum gap for corridor + clearance
+    const maxGap = 8.0; // Maximum gap to consider as "facing"
+
+    if (axis === 'horizontal') {
+      // Check if rows are horizontally separated
+      const row1MinY = Math.min(...row1.map(ilot => ilot.position.y));
+      const row1MaxY = Math.max(...row1.map(ilot => ilot.position.y + ilot.height));
+      const row2MinY = Math.min(...row2.map(ilot => ilot.position.y));
+      const row2MaxY = Math.max(...row2.map(ilot => ilot.position.y + ilot.height));
+
+      const gap = Math.min(
+        Math.abs(row2MinY - row1MaxY),
+        Math.abs(row1MinY - row2MaxY)
+      );
+
+      return gap >= minGap && gap <= maxGap;
+    } else {
+      // Check if rows are vertically separated
+      const row1MinX = Math.min(...row1.map(ilot => ilot.position.x));
+      const row1MaxX = Math.max(...row1.map(ilot => ilot.position.x + ilot.width));
+      const row2MinX = Math.min(...row2.map(ilot => ilot.position.x));
+      const row2MaxX = Math.max(...row2.map(ilot => ilot.position.x + ilot.width));
+
+      const gap = Math.min(
+        Math.abs(row2MinX - row1MaxX),
+        Math.abs(row1MinX - row2MaxX)
+      );
+
+      return gap >= minGap && gap <= maxGap;
+    }
+  }
+
+  private createCorridorBetweenRows(row1: Ilot[], row2: Ilot[], axis: 'horizontal' | 'vertical'): Corridor | null {
+    const corridorId = `corridor_${this.corridors.length}`;
+    
+    if (axis === 'horizontal') {
+      // Create horizontal corridor between vertically separated rows
+      const row1Bottom = Math.max(...row1.map(ilot => ilot.position.y + ilot.height));
+      const row2Top = Math.min(...row2.map(ilot => ilot.position.y));
+      
+      const corridorY = (row1Bottom + row2Top) / 2 - this.corridorWidth / 2;
+      
+      // Find the overlapping X range
+      const row1MinX = Math.min(...row1.map(ilot => ilot.position.x));
+      const row1MaxX = Math.max(...row1.map(ilot => ilot.position.x + ilot.width));
+      const row2MinX = Math.min(...row2.map(ilot => ilot.position.x));
+      const row2MaxX = Math.max(...row2.map(ilot => ilot.position.x + ilot.width));
+      
+      const startX = Math.max(row1MinX, row2MinX);
+      const endX = Math.min(row1MaxX, row2MaxX);
+      
+      if (startX >= endX) return null; // No overlap
+      
+      const path: Point[] = [
+        { x: startX, y: corridorY + this.corridorWidth / 2 },
+        { x: endX, y: corridorY + this.corridorWidth / 2 }
+      ];
+      
+      const connectedIlots = [...row1, ...row2].map(ilot => ilot.id);
+      
+      const corridor: Corridor = {
+        id: corridorId,
+        path,
+        width: this.corridorWidth,
+        connectedIlots,
+        accessible: true,
+        length: endX - startX
+      };
+
+      // Update îlot connections
+      for (const ilot of [...row1, ...row2]) {
+        ilot.corridorConnections.push(corridorId);
+      }
+
+      return corridor;
+    } else {
+      // Create vertical corridor between horizontally separated rows
+      const row1Right = Math.max(...row1.map(ilot => ilot.position.x + ilot.width));
+      const row2Left = Math.min(...row2.map(ilot => ilot.position.x));
+      
+      const corridorX = (row1Right + row2Left) / 2 - this.corridorWidth / 2;
+      
+      // Find the overlapping Y range
+      const row1MinY = Math.min(...row1.map(ilot => ilot.position.y));
+      const row1MaxY = Math.max(...row1.map(ilot => ilot.position.y + ilot.height));
+      const row2MinY = Math.min(...row2.map(ilot => ilot.position.y));
+      const row2MaxY = Math.max(...row2.map(ilot => ilot.position.y + ilot.height));
+      
+      const startY = Math.max(row1MinY, row2MinY);
+      const endY = Math.min(row1MaxY, row2MaxY);
+      
+      if (startY >= endY) return null; // No overlap
+      
+      const path: Point[] = [
+        { x: corridorX + this.corridorWidth / 2, y: startY },
+        { x: corridorX + this.corridorWidth / 2, y: endY }
+      ];
+      
+      const connectedIlots = [...row1, ...row2].map(ilot => ilot.id);
+      
+      const corridor: Corridor = {
+        id: corridorId,
+        path,
+        width: this.corridorWidth,
+        connectedIlots,
+        accessible: true,
+        length: endY - startY
+      };
+
+      // Update îlot connections
+      for (const ilot of [...row1, ...row2]) {
+        ilot.corridorConnections.push(corridorId);
+      }
+
+      return corridor;
+    }
+  }
+
+  private connectRemainingIlots(unconnectedIlots: Ilot[], allIlots: Ilot[]): Corridor[] {
+    const corridors: Corridor[] = [];
+    
+    // Use minimum spanning tree for remaining connections
+    const mst = this.calculateMinimumSpanningTree(unconnectedIlots);
 
     for (const edge of mst) {
       const path = this.pathfinder.findPath(
@@ -310,7 +551,7 @@ export class CorridorNetworkGenerator {
 
       if (path.length > 0) {
         const corridor: Corridor = {
-          id: `corridor_${this.corridors.length}`,
+          id: `corridor_${this.corridors.length + corridors.length}`,
           path,
           width: this.corridorWidth,
           connectedIlots: [edge.from.id, edge.to.id],
@@ -318,7 +559,7 @@ export class CorridorNetworkGenerator {
           length: this.calculatePathLength(path)
         };
 
-        this.corridors.push(corridor);
+        corridors.push(corridor);
 
         // Update îlot connections
         edge.from.corridorConnections.push(corridor.id);
@@ -326,7 +567,7 @@ export class CorridorNetworkGenerator {
       }
     }
 
-    return this.corridors;
+    return corridors;
   }
 
   private calculateMinimumSpanningTree(ilots: Ilot[]): Edge[] {
