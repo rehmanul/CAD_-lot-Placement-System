@@ -12,7 +12,8 @@ interface PixelPerfectFloorPlanProps {
 
 const getStatusColor = (status: string) => {
     if (!status || typeof status !== 'string') return 'text-gray-400';
-    switch (status.charAt(0)) {
+    const firstChar = status.toLowerCase().charAt(0);
+    switch (firstChar) {
       case 'c': return 'text-green-400';
       case 'p': return 'text-yellow-400';
       case 'e': return 'text-red-400';
@@ -69,25 +70,25 @@ export default function PixelPerfectFloorPlan({
     const offsetX = 60;
     const offsetY = 60;
 
-    // Draw îlots
+    // Draw îlots with correct property access
     analysis.result.ilots.forEach((ilot, index) => {
-      // Safe null checks
-      if (!ilot || typeof ilot.x !== 'number' || typeof ilot.y !== 'number') return;
+      // Safe null checks with correct property names
+      if (!ilot || !ilot.position || typeof ilot.position.x !== 'number' || typeof ilot.position.y !== 'number') return;
 
-      const scaledX = offsetX + (ilot.x * scaleFactor);
-      const scaledY = offsetY + (ilot.y * scaleFactor);
-      const scaledWidth = (ilot.width || 10) * scaleFactor;
-      const scaledHeight = (ilot.height || 10) * scaleFactor;
+      const scaledX = offsetX + (ilot.position.x * scaleFactor);
+      const scaledY = offsetY + (ilot.position.y * scaleFactor);
+      const scaledWidth = (ilot.width || 2.4) * scaleFactor;
+      const scaledHeight = (ilot.height || 1.6) * scaleFactor;
 
-      // Get color based on type
+      // Get color based on size
       const colors = {
         small: '#10B981',   // Green
         medium: '#F59E0B',  // Yellow
         large: '#EF4444'    // Red
       };
 
-      const ilotType = (ilot.type && typeof ilot.type === 'string') ? ilot.type : 'small';
-      ctx.fillStyle = colors[ilotType as keyof typeof colors] || colors.small;
+      const ilotSize = (ilot.size && typeof ilot.size === 'string') ? ilot.size : 'medium';
+      ctx.fillStyle = colors[ilotSize as keyof typeof colors] || colors.medium;
       ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
 
       // Draw border
@@ -95,37 +96,102 @@ export default function PixelPerfectFloorPlan({
       ctx.lineWidth = 1;
       ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
 
+      // Draw accessibility indicator
+      if (ilot.accessible) {
+        ctx.strokeStyle = '#10B981';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(scaledX + 1, scaledY + 1, scaledWidth - 2, scaledHeight - 2);
+      }
+
       // Draw label
       if (scaledWidth > 20 && scaledHeight > 20) {
         ctx.fillStyle = '#ffffff';
-        ctx.font = '12px Arial';
+        ctx.font = '10px Arial';
         ctx.textAlign = 'center';
-        const displayType = ilotType.charAt(0).toUpperCase();
+        const displaySize = ilotSize.charAt(0).toUpperCase();
         ctx.fillText(
-          `${displayType}${index + 1}`,
+          `${displaySize}${index + 1}`,
           scaledX + scaledWidth / 2,
-          scaledY + scaledHeight / 2 + 4
+          scaledY + scaledHeight / 2 + 3
         );
       }
     });
 
-    // Draw corridors if available
+    // Draw corridors with pixel-perfect visualization
     if (analysis.result.corridors && Array.isArray(analysis.result.corridors)) {
-      ctx.strokeStyle = '#8B5CF6';
-      ctx.lineWidth = 3;
-      analysis.result.corridors.forEach(corridor => {
-        if (corridor.points && Array.isArray(corridor.points)) {
-          corridor.points.forEach((point, index) => {
-            if (point && typeof point.x === 'number' && typeof point.y === 'number') {
-              if (index === 0) {
+      analysis.result.corridors.forEach((corridor, corridorIndex) => {
+        if (corridor.path && Array.isArray(corridor.path)) {
+          // Draw corridor background (width)
+          const corridorWidth = (corridor.width || 1.2) * scaleFactor;
+          
+          for (let i = 0; i < corridor.path.length - 1; i++) {
+            const start = corridor.path[i];
+            const end = corridor.path[i + 1];
+            
+            if (start && end && typeof start.x === 'number' && typeof start.y === 'number' &&
+                typeof end.x === 'number' && typeof end.y === 'number') {
+              
+              const startX = offsetX + (start.x * scaleFactor);
+              const startY = offsetY + (start.y * scaleFactor);
+              const endX = offsetX + (end.x * scaleFactor);
+              const endY = offsetY + (end.y * scaleFactor);
+              
+              // Calculate perpendicular offset for corridor width
+              const dx = endX - startX;
+              const dy = endY - startY;
+              const length = Math.sqrt(dx * dx + dy * dy);
+              
+              if (length > 0) {
+                const perpX = -dy / length * (corridorWidth / 2);
+                const perpY = dx / length * (corridorWidth / 2);
+                
+                // Draw corridor as filled rectangle
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.3)'; // Purple with transparency
                 ctx.beginPath();
-                ctx.moveTo(offsetX + (point.x * scaleFactor), offsetY + (point.y * scaleFactor));
-              } else {
-                ctx.lineTo(offsetX + (point.x * scaleFactor), offsetY + (point.y * scaleFactor));
+                ctx.moveTo(startX + perpX, startY + perpY);
+                ctx.lineTo(startX - perpX, startY - perpY);
+                ctx.lineTo(endX - perpX, endY - perpY);
+                ctx.lineTo(endX + perpX, endY + perpY);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Draw corridor centerline
+                ctx.strokeStyle = '#8B5CF6';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
               }
             }
+          }
+          
+          // Draw corridor endpoints
+          corridor.path.forEach((point, pointIndex) => {
+            if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+              const pointX = offsetX + (point.x * scaleFactor);
+              const pointY = offsetY + (point.y * scaleFactor);
+              
+              ctx.fillStyle = '#8B5CF6';
+              ctx.beginPath();
+              ctx.arc(pointX, pointY, 3, 0, 2 * Math.PI);
+              ctx.fill();
+            }
           });
-          ctx.stroke();
+          
+          // Draw corridor label
+          if (corridor.path.length > 0) {
+            const midPoint = corridor.path[Math.floor(corridor.path.length / 2)];
+            if (midPoint && typeof midPoint.x === 'number' && typeof midPoint.y === 'number') {
+              const labelX = offsetX + (midPoint.x * scaleFactor);
+              const labelY = offsetY + (midPoint.y * scaleFactor);
+              
+              ctx.fillStyle = '#ffffff';
+              ctx.font = '10px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(`C${corridorIndex + 1}`, labelX, labelY + 3);
+            }
+          }
         }
       });
     }
@@ -217,13 +283,16 @@ export default function PixelPerfectFloorPlan({
         {/* Îlot Type Distribution */}
         <div className="flex justify-center gap-4 mb-6">
           <Badge variant="secondary" className="bg-green-600/20 text-green-400">
-            Small: {analysis.result?.ilots?.filter(i => i.type === 'small').length || 0}
+            Small: {analysis.result?.ilots?.filter(i => i.size === 'small').length || 0}
           </Badge>
           <Badge variant="secondary" className="bg-orange-600/20 text-orange-400">
-            Medium: {analysis.result?.ilots?.filter(i => i.type === 'medium').length || 0}
+            Medium: {analysis.result?.ilots?.filter(i => i.size === 'medium').length || 0}
           </Badge>
           <Badge variant="secondary" className="bg-red-600/20 text-red-400">
-            Large: {analysis.result?.ilots?.filter(i => i.type === 'large').length || 0}
+            Large: {analysis.result?.ilots?.filter(i => i.size === 'large').length || 0}
+          </Badge>
+          <Badge variant="secondary" className="bg-purple-600/20 text-purple-400">
+            Corridors: {analysis.result?.corridors?.length || 0}
           </Badge>
         </div>
          {/* Results Display */}

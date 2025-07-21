@@ -177,6 +177,8 @@ export class PixelPerfectProcessor {
   generateCorridorNetwork(ilots: Ilot[]): Corridor[] {
     const corridors: Corridor[] = [];
     
+    if (ilots.length === 0) return corridors;
+    
     // Group îlots into rows based on Y position
     const ilotRows = this.groupIlotsIntoRows(ilots);
     
@@ -201,6 +203,10 @@ export class PixelPerfectProcessor {
     // Generate vertical corridors for perpendicular access
     const verticalCorridors = this.generateVerticalCorridors(ilots, corridors.length);
     corridors.push(...verticalCorridors);
+
+    // Generate perimeter corridors for external access
+    const perimeterCorridors = this.generatePerimeterCorridors(ilots, corridors.length + verticalCorridors.length);
+    corridors.push(...perimeterCorridors);
 
     return corridors;
   }
@@ -398,6 +404,51 @@ export class PixelPerfectProcessor {
         ilot.corridorConnections.push(corridorId);
       }
     });
+  }
+
+  /**
+   * Generate perimeter corridors around the entire layout
+   */
+  private generatePerimeterCorridors(ilots: Ilot[], startingId: number): Corridor[] {
+    if (ilots.length === 0) return [];
+    
+    const corridors: Corridor[] = [];
+    
+    // Find layout bounds
+    const minX = Math.min(...ilots.map(i => i.position.x));
+    const maxX = Math.max(...ilots.map(i => i.position.x + i.width));
+    const minY = Math.min(...ilots.map(i => i.position.y));
+    const maxY = Math.max(...ilots.map(i => i.position.y + i.height));
+    
+    const margin = this.corridorWidth;
+    
+    // Top perimeter corridor
+    corridors.push({
+      id: `perimeter-top-${startingId}`,
+      path: [
+        { x: minX - margin, y: minY - margin },
+        { x: maxX + margin, y: minY - margin }
+      ],
+      width: this.corridorWidth,
+      connectedIlots: ilots.filter(i => i.position.y === minY).map(i => i.id),
+      accessible: true,
+      length: (maxX + margin) - (minX - margin)
+    });
+    
+    // Bottom perimeter corridor
+    corridors.push({
+      id: `perimeter-bottom-${startingId + 1}`,
+      path: [
+        { x: minX - margin, y: maxY + margin },
+        { x: maxX + margin, y: maxY + margin }
+      ],
+      width: this.corridorWidth,
+      connectedIlots: ilots.filter(i => i.position.y + i.height === maxY).map(i => i.id),
+      accessible: true,
+      length: (maxX + margin) - (minX - margin)
+    });
+    
+    return corridors;
   }
 
   /**
