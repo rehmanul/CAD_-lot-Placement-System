@@ -109,6 +109,28 @@ export const cadAPI = {
     return result.data;
   },
 
+  // Start pixel-perfect analysis
+  async startPixelPerfectAnalysis(
+    fileId: string,
+    config: {
+      ilotConfig: {
+        smallIlots: number;
+        mediumIlots: number;
+        largeIlots: number;
+        corridorWidth: number;
+        adaCompliance: boolean;
+        minClearance?: number;
+        maxDensity?: number;
+      };
+    }
+  ): Promise<{ analysisId: string; result: any }> {
+    const result = await apiRequest<{ analysisId: string; result: any }>(`/cad/pixel-perfect/${fileId}`, {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+    return result;
+  },
+
   // Export analysis results
   async exportResults(
     analysisId: string,

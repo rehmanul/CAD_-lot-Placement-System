@@ -265,9 +265,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error('Pixel-perfect processing error:', error);
+      
+      // If cadFile is undefined, provide a more specific error
+      if (!cadFile) {
+        return res.status(404).json({
+          error: "CAD file not found",
+          message: "The specified CAD file could not be found for processing"
+        });
+      }
+      
       res.status(500).json({
         error: "Processing failed",
-        message: error instanceof Error ? error.message : "Unknown processing error"
+        message: error instanceof Error ? error.message : "Unknown processing error",
+        details: process.env.NODE_ENV === 'development' ? error : undefined
       });
     }
   });
